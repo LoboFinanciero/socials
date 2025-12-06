@@ -160,7 +160,7 @@ if get_api_key():
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
-                              "SPY": "darkorange", "Fenrir": "red", 
+                              "SPY": "fuchsia", "Fenrir": "red", 
                               "ChatGPT": "green", "Gemini": "blue"
                           })
             
