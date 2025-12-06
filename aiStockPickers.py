@@ -4,11 +4,10 @@ import requests
 import plotly.express as px
 from datetime import datetime
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="Pelea de IAs")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Batalla de Portafolios", layout="wide")
 
-# 1. HARD-CODED START DATE
-# Change this string to whatever start date you want (YYYY-MM-DD)
+# 1. FECHA DE INICIO (HARD-CODED)
 START_DATE = "2024-01-01"
 
 PORTFOLIOS = {
@@ -18,20 +17,20 @@ PORTFOLIOS = {
     "Benchmark": ["SPY"]
 }
 
-# --- FUNCTIONS ---
+# --- FUNCIONES ---
 
 def get_api_key():
     try:
         return st.secrets["fmp"]["api_key"]
     except Exception:
-        st.error("API Key not found. Please check your .streamlit/secrets.toml file.")
+        st.error("No se encontró la API Key. Por favor revisa tu archivo .streamlit/secrets.toml")
         return None
 
 @st.cache_data(ttl=86400) 
 def fetch_stock_data(ticker, api_key, start_date):
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
     
-    # REMOVE "serietype": "line" so we get the full data (including adjClose)
+    # Usamos adjClose para considerar dividendos y splits
     params = {
         "apikey": api_key, 
         "from": start_date
@@ -46,10 +45,10 @@ def fetch_stock_data(ticker, api_key, start_date):
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
             
-            # CHANGE: Select 'adjClose' instead of 'close'
+            # Seleccionar 'adjClose'
             df = df[['date', 'adjClose']] 
             
-            # Rename it to the ticker name so the join works later
+            # Renombrar columna al ticker
             df = df.rename(columns={'adjClose': ticker})
             
             df.set_index('date', inplace=True)
@@ -57,8 +56,7 @@ def fetch_stock_data(ticker, api_key, start_date):
         else:
             return pd.DataFrame()
     except Exception as e:
-        # It's often good to print the error to the terminal logs for debugging
-        print(f"Error fetching {ticker}: {e}")
+        print(f"Error buscando {ticker}: {e}")
         return pd.DataFrame()
 
 def get_all_data(portfolios, start_date):
@@ -69,9 +67,9 @@ def get_all_data(portfolios, start_date):
     all_tickers = list(set([t for tickers in portfolios.values() for t in tickers]))
     master_df = pd.DataFrame()
     
-    # Simple progress text without the bar to save mobile space
+    # Texto de carga en español
     status_text = st.empty()
-    status_text.text("🐺 Fenrir is hunting for data...")
+    status_text.text("🐺 Fenrir está cazando datos...")
     
     for ticker in all_tickers:
         df = fetch_stock_data(ticker, api_key, start_date)
@@ -85,8 +83,8 @@ def get_all_data(portfolios, start_date):
     return master_df
 
 def get_stock_returns(master_df, portfolios):
-    """Calculates total return % for every individual stock."""
-    # clean data
+    """Calcula el retorno total % para cada acción individual."""
+    # Limpiar datos
     df = master_df.ffill().dropna()
     if df.empty: return {}
 
@@ -96,7 +94,7 @@ def get_stock_returns(master_df, portfolios):
     returns_map = {}
     
     for p_name, tickers in portfolios.items():
-        if p_name == "Benchmark": continue # Skip SPY for the individual tables
+        if p_name == "Benchmark": continue 
         
         p_data = []
         for ticker in tickers:
@@ -104,7 +102,7 @@ def get_stock_returns(master_df, portfolios):
                 total_ret = ((end_prices[ticker] - start_prices[ticker]) / start_prices[ticker]) * 100
                 p_data.append({"Stock": ticker, "Return": total_ret})
         
-        # Create dataframe and sort by highest return
+        # Crear dataframe y ordenar
         p_df = pd.DataFrame(p_data)
         if not p_df.empty:
             p_df = p_df.sort_values("Return", ascending=False)
@@ -116,6 +114,7 @@ def calculate_portfolio_performance(master_df, portfolios):
     clean_df = master_df.ffill().dropna()
     if clean_df.empty: return pd.DataFrame()
 
+    # Normalizar a 100
     normalized_df = (clean_df / clean_df.iloc[0]) * 100
     performance_df = pd.DataFrame(index=normalized_df.index)
 
@@ -128,46 +127,43 @@ def calculate_portfolio_performance(master_df, portfolios):
 
 # --- MAIN APP UI ---
 
-st.title("🐺 Portfolio Battle")
-st.caption(f"Tracking performance from: {START_DATE}")
+st.title("🐺 Batalla de Portafolios")
 
 # Fetch Data
 if get_api_key():
     raw_data = get_all_data(PORTFOLIOS, START_DATE)
     
     if not raw_data.empty:
-        # --- NEW CODE START ---
-        # Get the latest date available in the dataset
+        # Calcular fecha más reciente
         latest_date = raw_data.index.max().strftime('%Y-%m-%d')
-        
-        # Update the caption to show the full range
-        st.caption(f"📅 Tracking performance from: **{START_DATE}** | Latest data: **{latest_date}**")
-        # --- NEW CODE END ---
+        st.caption(f"📅 Rendimiento desde: **{START_DATE}** | Últimos datos: **{latest_date}**")
 
-        # 1. Process Chart Data
+        # 1. Procesar Datos del Gráfico
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
         
         if not chart_data.empty:
-            # Metrics
+            # Métricas
             final_vals = chart_data.iloc[-1]
             start_vals = chart_data.iloc[0]
             total_returns = ((final_vals - start_vals) / start_vals) * 100
             
-            # Display Top Level Metrics
+            # Mostrar Métricas Superiores
             cols = st.columns(len(PORTFOLIOS))
             for i, (col, p_name) in enumerate(zip(cols, PORTFOLIOS.keys())):
                 ret = total_returns.get(p_name, 0)
                 col.metric(p_name, f"{ret:.1f}%")
 
-            # Chart (Taller for Mobile)
+            # Gráfico (Más alto para celular)
             st.markdown("---")
+            
+            # Etiquetas en español
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
+                          labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
                               "SPY": "gray", "Fenrir": "red", 
                               "ChatGPT": "green", "Gemini": "blue"
                           })
             
-            # Mobile Optimization: Increase height, move legend to bottom to save width
             fig.update_layout(
                 height=600, 
                 legend=dict(orientation="h", y=-0.2, x=0, title=None),
@@ -177,15 +173,13 @@ if get_api_key():
             )
             st.plotly_chart(fig, use_container_width=True)
             
-            # 2. Individual Stock Tables
-            st.markdown("### 📊 Portfolio Breakdown")
+            # 2. Tablas Individuales
+            st.markdown("### 📊 Desglose por Portafolio")
             
             stock_returns = get_stock_returns(raw_data, PORTFOLIOS)
             
-            # Create 3 columns for desktop (will stack on mobile)
+            # Columnas
             p_cols = st.columns(3)
-            
-            # Iterate through our 3 main portfolios
             target_portfolios = ["ChatGPT", "Gemini", "Fenrir"]
             
             for i, p_name in enumerate(target_portfolios):
@@ -193,17 +187,21 @@ if get_api_key():
                     st.subheader(p_name)
                     if p_name in stock_returns:
                         df = stock_returns[p_name]
-                        # Format the Return column as a percentage string
-                        df_display = df.copy()
-                        df_display["Return"] = df_display["Return"].map("{:+.2f}%".format)
                         
-                        # Display clean table
+                        # Copia para visualización en español
+                        df_display = df.copy()
+                        df_display.columns = ["Acción", "Rendimiento"] # Renombrar headers
+                        
+                        # Formato porcentaje
+                        df_display["Rendimiento"] = df_display["Rendimiento"].map("{:+.2f}%".format)
+                        
+                        # Mostrar tabla limpia
                         st.dataframe(
                             df_display, 
                             hide_index=True, 
                             use_container_width=True
                         )
         else:
-            st.error("Not enough data overlap. Try a more recent start date.")
+            st.error("No hay suficientes datos. Intenta con una fecha de inicio más antigua.")
     else:
-        st.error("No data returned from API.")
+        st.error("La API no devolvió datos.")
