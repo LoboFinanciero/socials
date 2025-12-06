@@ -169,7 +169,7 @@ if get_api_key():
     if not raw_data.empty:
         # Calcular fecha más reciente
         latest_date = raw_data.index.max().strftime('%Y-%m-%d')
-        st.caption(f"Rendimiento desde: **{START_DATE}** | Actualizado: **{latest_date}**")
+        st.caption(f"Rendimiento desde: **{START_DATE}** | Hasta: **{latest_date}**")
 
         # 1. Procesar Datos del Gráfico
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
