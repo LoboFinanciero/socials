@@ -30,21 +30,35 @@ def get_api_key():
 @st.cache_data(ttl=86400) 
 def fetch_stock_data(ticker, api_key, start_date):
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
-    params = {"apikey": api_key, "from": start_date, "serietype": "line"}
+    
+    # REMOVE "serietype": "line" so we get the full data (including adjClose)
+    params = {
+        "apikey": api_key, 
+        "from": start_date
+    }
     
     try:
         response = requests.get(url, params=params)
         data = response.json()
+        
         if "historical" in data:
             df = pd.DataFrame(data["historical"])
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
-            df = df[['date', 'close']]
-            df = df.rename(columns={'close': ticker})
+            
+            # CHANGE: Select 'adjClose' instead of 'close'
+            df = df[['date', 'adjClose']] 
+            
+            # Rename it to the ticker name so the join works later
+            df = df.rename(columns={'adjClose': ticker})
+            
             df.set_index('date', inplace=True)
             return df
-        return pd.DataFrame()
-    except Exception:
+        else:
+            return pd.DataFrame()
+    except Exception as e:
+        # It's often good to print the error to the terminal logs for debugging
+        print(f"Error fetching {ticker}: {e}")
         return pd.DataFrame()
 
 def get_all_data(portfolios, start_date):
@@ -122,6 +136,14 @@ if get_api_key():
     raw_data = get_all_data(PORTFOLIOS, START_DATE)
     
     if not raw_data.empty:
+        # --- NEW CODE START ---
+        # Get the latest date available in the dataset
+        latest_date = raw_data.index.max().strftime('%Y-%m-%d')
+        
+        # Update the caption to show the full range
+        st.caption(f"📅 Tracking performance from: **{START_DATE}** | Latest data: **{latest_date}**")
+        # --- NEW CODE END ---
+
         # 1. Process Chart Data
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
         
