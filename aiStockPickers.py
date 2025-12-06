@@ -5,7 +5,7 @@ import plotly.express as px
 from datetime import datetime
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Portfolio Battle", layout="wide")
+st.set_page_config(page_title="Pelea de IAs")
 
 # 1. HARD-CODED START DATE
 # Change this string to whatever start date you want (YYYY-MM-DD)
