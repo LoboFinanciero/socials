@@ -11,9 +11,42 @@ st.set_page_config(page_title="Batalla de Portafolios", layout="wide")
 START_DATE = "2024-01-01"
 
 PORTFOLIOS = {
-    "ChatGPT": ["MSFT", "NVDA", "CRM", "ADBE", "ORCL", "IBM", "AMD", "INTC", "CSCO", "NOW"],
-    "Gemini": ["GOOGL", "AMZN", "META", "AAPL", "NFLX", "TSM", "AVGO", "QCOM", "TXN", "AMAT"],
-    "Fenrir": ["TSLA", "COIN", "MSTR", "PLTR", "HOOD", "SQ", "DKNG", "ROKU", "SHOP", "NET"], 
+    "ChatGPT": [
+    "MSFT",  # Microsoft
+    "NVDA",  # NVIDIA
+    "GOOGL", # Alphabet
+    "AMZN",  # Amazon
+    "META",  # Meta Platforms
+    "AAPL",  # Apple
+    "TSLA",  # Tesla
+    "INTC",  # Intel
+    "PYPL",  # PayPal
+    "EXC"    # Exelon
+],
+    "Gemini": [
+    "VRT",   # Vertiv Holdings
+    "FIX",   # Comfort Systems USA
+    "CIEN",  # Ciena Corporation
+    "APP",   # AppLovin
+    "PLTR",  # Palantir Technologies
+    "CRWD",  # CrowdStrike Holdings
+    "SHOP",  # Shopify
+    "DASH",  # DoorDash
+    "UBER",  # Uber Technologies
+    "HIMS"   # Hims & Hers Health
+],
+    "Fenrir": [
+    "DBX",  # Dropbox
+    "MTCH", # Match Group
+    "GFS",  # GlobalFoundries
+    "MRNA", # Moderna
+    "PEGA", # Pegasystems
+    "AMKR", # Amkor Technology
+    "GTM",  # Granite Ridge (or ticker GTM depending on context)
+    "BBWI", # Bath & Body Works
+    "SMCI", # Super Micro Computer
+    "ALGM"  # Allegro MicroSystems
+], 
     "Benchmark": ["SPY"]
 }
 
