@@ -102,7 +102,7 @@ def get_all_data(portfolios, start_date):
     
     # Texto de carga en español
     status_text = st.empty()
-    status_text.text("🐺 Fenrir está cazando datos...")
+    status_text.text("Fenrir está cazando datos...")
     
     for ticker in all_tickers:
         df = fetch_stock_data(ticker, api_key, start_date)
