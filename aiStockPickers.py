@@ -136,7 +136,7 @@ if get_api_key():
     if not raw_data.empty:
         # Calcular fecha más reciente
         latest_date = raw_data.index.max().strftime('%Y-%m-%d')
-        st.caption(f"📅 Rendimiento desde: **{START_DATE}** | Últimos datos: **{latest_date}**")
+        st.caption(f"Rendimiento desde: **{START_DATE}** | Actualizado: **{latest_date}**")
 
         # 1. Procesar Datos del Gráfico
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
@@ -160,7 +160,7 @@ if get_api_key():
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
-                              "SPY": "gray", "Fenrir": "red", 
+                              "SPY": "darkorange", "Fenrir": "red", 
                               "ChatGPT": "green", "Gemini": "blue"
                           })
             
@@ -174,7 +174,7 @@ if get_api_key():
             st.plotly_chart(fig, use_container_width=True)
             
             # 2. Tablas Individuales
-            st.markdown("### 📊 Desglose por Portafolio")
+            st.markdown("### Desglose por Portafolio")
             
             stock_returns = get_stock_returns(raw_data, PORTFOLIOS)
             
