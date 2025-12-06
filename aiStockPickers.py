@@ -11,7 +11,7 @@ st.set_page_config(page_title="Batalla de Portafolios", layout="wide")
 START_DATE = "2024-01-01"
 
 PORTFOLIOS = {
-    "ChatGPT": ["MSFT", "NVDA", "CRM", "ADBE", "ORCL", "IBM", "AMD", "INTC", "CSCO", "NOW", "KO"],
+    "ChatGPT": ["MSFT", "NVDA", "CRM", "ADBE", "ORCL", "IBM", "AMD", "INTC", "CSCO", "NOW"],
     "Gemini": ["GOOGL", "AMZN", "META", "AAPL", "NFLX", "TSM", "AVGO", "QCOM", "TXN", "AMAT"],
     "Fenrir": ["TSLA", "COIN", "MSTR", "PLTR", "HOOD", "SQ", "DKNG", "ROKU", "SHOP", "NET"], 
     "Benchmark": ["SPY"]
@@ -160,8 +160,17 @@ if get_api_key():
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
-                              "SPY": "fuchsia", "Fenrir": "red", 
-                              "ChatGPT": "green", "Gemini": "blue"
+                              # FIX: Use "Benchmark" (the dictionary key), not "SPY"
+                              "Benchmark": "gray",  
+                              
+                              # Fenrir: A blood orange/red hex code
+                              "Fenrir": "#FF4B4B",  
+                              
+                              # ChatGPT: A standard CSS named color
+                              "ChatGPT": "mediumseagreen", 
+                              
+                              # Gemini: A bright cyan hex code to pop against dark mode
+                              "Gemini": "#00CCFF"   
                           })
             
             fig.update_layout(
