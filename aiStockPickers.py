@@ -161,7 +161,7 @@ if get_api_key():
                           labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
                               # FIX: Use "Benchmark" (the dictionary key), not "SPY"
-                              "Benchmark": "orange",  
+                              "Benchmark": "gray",  
                               
                               # Fenrir: A blood orange/red hex code
                               "Fenrir": "#EC5C73",  
