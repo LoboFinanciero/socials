@@ -2,16 +2,18 @@ import streamlit as st
 import pandas as pd
 import requests
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Portfolio Battle: GPT vs Gemini vs Fenrir", layout="wide")
+st.set_page_config(page_title="Portfolio Battle", layout="wide")
 
-# define the tickers for each portfolio (10 stocks each)
+# 1. HARD-CODED START DATE
+# Change this string to whatever start date you want (YYYY-MM-DD)
+START_DATE = "2024-01-01"
+
 PORTFOLIOS = {
     "ChatGPT": ["MSFT", "NVDA", "CRM", "ADBE", "ORCL", "IBM", "AMD", "INTC", "CSCO", "NOW"],
     "Gemini": ["GOOGL", "AMZN", "META", "AAPL", "NFLX", "TSM", "AVGO", "QCOM", "TXN", "AMAT"],
-    # Fenrir: A more aggressive/wolf-themed mix (Crypto proxies, High Beta)
     "Fenrir": ["TSLA", "COIN", "MSTR", "PLTR", "HOOD", "SQ", "DKNG", "ROKU", "SHOP", "NET"], 
     "Benchmark": ["SPY"]
 }
@@ -19,29 +21,20 @@ PORTFOLIOS = {
 # --- FUNCTIONS ---
 
 def get_api_key():
-    """Retrieves API key from Streamlit secrets."""
     try:
         return st.secrets["fmp"]["api_key"]
     except Exception:
         st.error("API Key not found. Please check your .streamlit/secrets.toml file.")
         return None
 
-@st.cache_data(ttl=86400) # Cache data for 24 hours
+@st.cache_data(ttl=86400) 
 def fetch_stock_data(ticker, api_key, start_date):
-    """
-    Fetches historical data for a single ticker from FMP.
-    """
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
-    params = {
-        "apikey": api_key,
-        "from": start_date,
-        "serietype": "line"
-    }
+    params = {"apikey": api_key, "from": start_date, "serietype": "line"}
     
     try:
         response = requests.get(url, params=params)
         data = response.json()
-        
         if "historical" in data:
             df = pd.DataFrame(data["historical"])
             df['date'] = pd.to_datetime(df['date'])
@@ -50,67 +43,69 @@ def fetch_stock_data(ticker, api_key, start_date):
             df = df.rename(columns={'close': ticker})
             df.set_index('date', inplace=True)
             return df
-        else:
-            return pd.DataFrame()
-    except Exception as e:
-        st.warning(f"Error fetching {ticker}: {e}")
+        return pd.DataFrame()
+    except Exception:
         return pd.DataFrame()
 
 def get_all_data(portfolios, start_date):
-    """
-    Iterates through all portfolios and fetches data for all tickers.
-    """
     api_key = get_api_key()
     if not api_key:
         return pd.DataFrame()
 
-    all_tickers = []
-    for p_name, tickers in portfolios.items():
-        all_tickers.extend(tickers)
-    
-    # Remove duplicates
-    all_tickers = list(set(all_tickers))
-    
+    all_tickers = list(set([t for tickers in portfolios.values() for t in tickers]))
     master_df = pd.DataFrame()
     
-    # Create a progress bar
-    progress_text = "Fetching market data from FMP..."
-    my_bar = st.progress(0, text=progress_text)
+    # Simple progress text without the bar to save mobile space
+    status_text = st.empty()
+    status_text.text("🐺 Fenrir is hunting for data...")
     
-    total_tickers = len(all_tickers)
-    
-    for i, ticker in enumerate(all_tickers):
+    for ticker in all_tickers:
         df = fetch_stock_data(ticker, api_key, start_date)
         if not df.empty:
             if master_df.empty:
                 master_df = df
             else:
                 master_df = master_df.join(df, how='outer')
-        
-        # Update progress bar
-        my_bar.progress((i + 1) / total_tickers, text=f"Fetching {ticker}...")
             
-    my_bar.empty()
+    status_text.empty()
     return master_df
 
-def calculate_portfolio_performance(master_df, portfolios):
-    """
-    Normalizes prices to start at 100 and calculates portfolio averages.
-    """
-    # Forward fill missing data (for weekends/holidays differences if any) then drop remaining NAs
-    clean_df = master_df.ffill().dropna()
+def get_stock_returns(master_df, portfolios):
+    """Calculates total return % for every individual stock."""
+    # clean data
+    df = master_df.ffill().dropna()
+    if df.empty: return {}
+
+    start_prices = df.iloc[0]
+    end_prices = df.iloc[-1]
     
-    if clean_df.empty:
-        return pd.DataFrame()
+    returns_map = {}
+    
+    for p_name, tickers in portfolios.items():
+        if p_name == "Benchmark": continue # Skip SPY for the individual tables
+        
+        p_data = []
+        for ticker in tickers:
+            if ticker in df.columns:
+                total_ret = ((end_prices[ticker] - start_prices[ticker]) / start_prices[ticker]) * 100
+                p_data.append({"Stock": ticker, "Return": total_ret})
+        
+        # Create dataframe and sort by highest return
+        p_df = pd.DataFrame(p_data)
+        if not p_df.empty:
+            p_df = p_df.sort_values("Return", ascending=False)
+        returns_map[p_name] = p_df
+        
+    return returns_map
 
-    # Normalize individual stocks to start at 100
+def calculate_portfolio_performance(master_df, portfolios):
+    clean_df = master_df.ffill().dropna()
+    if clean_df.empty: return pd.DataFrame()
+
     normalized_df = (clean_df / clean_df.iloc[0]) * 100
-
     performance_df = pd.DataFrame(index=normalized_df.index)
 
-    # Calculate Equal Weighted Portfolio Performance
     for p_name, tickers in portfolios.items():
-        # Only select tickers that successfully returned data
         valid_tickers = [t for t in tickers if t in normalized_df.columns]
         if valid_tickers:
             performance_df[p_name] = normalized_df[valid_tickers].mean(axis=1)
@@ -119,55 +114,74 @@ def calculate_portfolio_performance(master_df, portfolios):
 
 # --- MAIN APP UI ---
 
-st.title("🐺 Portfolio Evolution: The Battle")
-st.markdown("Comparing **ChatGPT**, **Gemini**, and **Fenrir** vs the **S&P 500**.")
-
-col1, col2 = st.columns(2)
-with col1:
-    # Default to 1 year ago
-    default_start = datetime.now() - timedelta(days=365)
-    start_date = st.date_input("Start Date", default_start)
+st.title("🐺 Portfolio Battle")
+st.caption(f"Tracking performance from: {START_DATE}")
 
 # Fetch Data
-st.divider()
-
-# Only fetch if we have a valid key
 if get_api_key():
-    raw_data = get_all_data(PORTFOLIOS, start_date.strftime("%Y-%m-%d"))
+    raw_data = get_all_data(PORTFOLIOS, START_DATE)
     
     if not raw_data.empty:
-        # Process Data
+        # 1. Process Chart Data
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
         
         if not chart_data.empty:
-            # Calculate total return for the period
+            # Metrics
             final_vals = chart_data.iloc[-1]
             start_vals = chart_data.iloc[0]
             total_returns = ((final_vals - start_vals) / start_vals) * 100
             
-            # Display Metrics
-            st.subheader("Total Return (%)")
-            m_cols = st.columns(len(PORTFOLIOS))
-            for i, (col, portfolio_name) in enumerate(zip(m_cols, PORTFOLIOS.keys())):
-                ret = total_returns.get(portfolio_name, 0)
-                col.metric(label=portfolio_name, value=f"{ret:.2f}%")
+            # Display Top Level Metrics
+            cols = st.columns(len(PORTFOLIOS))
+            for i, (col, p_name) in enumerate(zip(cols, PORTFOLIOS.keys())):
+                ret = total_returns.get(p_name, 0)
+                col.metric(p_name, f"{ret:.1f}%")
 
-            # Plot Chart
-            st.subheader("Performance Over Time (Rebased to 100)")
+            # Chart (Taller for Mobile)
+            st.markdown("---")
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
-                          labels={"value": "Normalized Value ($)", "date": "Date", "variable": "Portfolio"},
                           color_discrete_map={
-                              "SPY": "gray",
-                              "Fenrir": "red", 
-                              "ChatGPT": "green",
-                              "Gemini": "blue"
+                              "SPY": "gray", "Fenrir": "red", 
+                              "ChatGPT": "green", "Gemini": "blue"
                           })
+            
+            # Mobile Optimization: Increase height, move legend to bottom to save width
+            fig.update_layout(
+                height=600, 
+                legend=dict(orientation="h", y=-0.2, x=0, title=None),
+                margin=dict(l=20, r=20, t=20, b=20),
+                yaxis_title=None,
+                xaxis_title=None
+            )
             st.plotly_chart(fig, use_container_width=True)
             
-            # Show raw data toggle
-            with st.expander("See Raw Portfolio Data"):
-                st.dataframe(chart_data.sort_index(ascending=False))
+            # 2. Individual Stock Tables
+            st.markdown("### 📊 Portfolio Breakdown")
+            
+            stock_returns = get_stock_returns(raw_data, PORTFOLIOS)
+            
+            # Create 3 columns for desktop (will stack on mobile)
+            p_cols = st.columns(3)
+            
+            # Iterate through our 3 main portfolios
+            target_portfolios = ["ChatGPT", "Gemini", "Fenrir"]
+            
+            for i, p_name in enumerate(target_portfolios):
+                with p_cols[i]:
+                    st.subheader(p_name)
+                    if p_name in stock_returns:
+                        df = stock_returns[p_name]
+                        # Format the Return column as a percentage string
+                        df_display = df.copy()
+                        df_display["Return"] = df_display["Return"].map("{:+.2f}%".format)
+                        
+                        # Display clean table
+                        st.dataframe(
+                            df_display, 
+                            hide_index=True, 
+                            use_container_width=True
+                        )
         else:
-            st.error("Not enough data to generate chart. Try an older start date.")
+            st.error("Not enough data overlap. Try a more recent start date.")
     else:
         st.error("No data returned from API.")
