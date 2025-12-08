@@ -47,7 +47,7 @@ PORTFOLIOS = {
     "SMCI", # Super Micro Computer
     "ALGM"  # Allegro MicroSystems
 ], 
-    "Benchmark": ["SPY"]
+    "SPY": ["SPY"]
 }
 
 # --- FUNCIONES ---
@@ -127,7 +127,7 @@ def get_stock_returns(master_df, portfolios):
     returns_map = {}
     
     for p_name, tickers in portfolios.items():
-        if p_name == "Benchmark": continue 
+        if p_name == "SPY": continue 
         
         p_data = []
         for ticker in tickers:
@@ -222,8 +222,8 @@ if get_api_key():
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
                           color_discrete_map={
-                              # FIX: Use "Benchmark" (the dictionary key), not "SPY"
-                              "Benchmark": "gray",  
+                              # FIX: Use "SPY" (the dictionary key), not "SPY"
+                              "SPY": "gray",  
                               
                               # Fenrir: A blood orange/red hex code
                               "Fenrir": "#EC5C73",  
