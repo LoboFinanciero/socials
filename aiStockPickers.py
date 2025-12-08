@@ -8,7 +8,7 @@ from datetime import datetime
 st.set_page_config(page_title="Batalla de Portafolios", layout="wide")
 
 # 1. FECHA DE INICIO (HARD-CODED)
-START_DATE = "2024-01-01"
+START_DATE = "2025-12-05"
 
 PORTFOLIOS = {
     "ChatGPT": [
