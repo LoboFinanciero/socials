@@ -180,11 +180,40 @@ if get_api_key():
             start_vals = chart_data.iloc[0]
             total_returns = ((final_vals - start_vals) / start_vals) * 100
             
-            # Mostrar Métricas Superiores
-            cols = st.columns(len(PORTFOLIOS))
-            for i, (col, p_name) in enumerate(zip(cols, PORTFOLIOS.keys())):
-                ret = total_returns.get(p_name, 0)
-                col.metric(p_name, f"{ret:.1f}%")
+            # Métricas
+            final_vals = chart_data.iloc[-1]
+            start_vals = chart_data.iloc[0]
+            total_returns = ((final_vals - start_vals) / start_vals) * 100
+
+            # --- NEW SORTING LOGIC ---
+            # 1. Sort values from highest to lowest
+            sorted_returns = total_returns.sort_values(ascending=False)
+            
+            # 2. Create columns based on sorted data
+            cols = st.columns(len(sorted_returns))
+            
+            # 3. Iterate and display with "Winner" logic
+            winner_val = sorted_returns.iloc[0] # The highest value
+            
+            for index, (p_name, ret) in enumerate(sorted_returns.items()):
+                with cols[index]:
+                    # Determine styling based on rank
+                    if index == 0:
+                        label = f"🏆 {p_name} (Líder)"
+                        # No delta, or a custom text
+                        st.metric(label=label, value=f"{ret:.1f}%", delta="Ganando")
+                    else:
+                        # Add Medals for 2nd and 3rd
+                        if index == 1: prefix = "🥈"
+                        elif index == 2: prefix = "🥉"
+                        else: prefix = f"#{index+1}"
+                        
+                        label = f"{prefix} {p_name}"
+                        
+                        # Calculate gap vs the Winner
+                        gap = ret - winner_val
+                        # Display metric with the gap (will show red automatically if negative)
+                        st.metric(label=label, value=f"{ret:.1f}%", delta=f"{gap:.1f}%")
 
             # Gráfico (Más alto para celular)
             st.markdown("---")
