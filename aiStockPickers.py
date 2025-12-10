@@ -285,7 +285,7 @@ if get_api_key():
 
             # --- PLOTLY CHART ---
             st.markdown("---")
-            st.subheader("📈 Historial de Rendimiento") # Added Title
+            st.subheader("Historial de Rendimiento") # Added Title
             
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado", "date": "Fecha", "variable": "Portafolio"},
