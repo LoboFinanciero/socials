@@ -58,6 +58,14 @@ COLORS = {
     "SPY": "#808080"          # Gray
 }
 
+# Logo URLs (Find transparent PNGs for best look)
+LOGOS = {
+    "ChatGPT": "https://github.com/LoboFinanciero/socials/blob/main/assets/chatgpt_logo.png?raw=true",
+    "Gemini": "https://github.com/LoboFinanciero/socials/blob/main/assets/gemini_logo.png?raw=true", 
+    "Fenrir": "https://github.com/LoboFinanciero/socials/blob/main/assets/fenrir_logo.png?raw=true",
+    "SPY": "https://github.com/LoboFinanciero/socials/blob/main/assets/spy_logo.png?raw=true"
+}
+
 # --- FUNCIONES ---
 
 def get_api_key():
@@ -235,42 +243,48 @@ if get_api_key():
             sorted_returns = total_returns.sort_values(ascending=False)
             winner_val = sorted_returns.iloc[0]
 
-            # --- CUSTOM CARD DISPLAY (ROW FORMAT) ---
-            
-            # Get the total count to find who is last
+            # --- CUSTOM CARD DISPLAY (WITH LOGOS) ---
             total_portfolios = len(sorted_returns)
             
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
-                # Determine styling
                 border_color = COLORS.get(p_name, "#ffffff")
+                logo_url = LOGOS.get(p_name, "")
                 
-                # --- ICON LOGIC ---
+                # --- ICON/LOGO LOGIC ---
+                # Default: Show the Logo
+                display_element = f'<img src="{logo_url}" style="width: 40px; height: 40px; object-fit: contain;">'
+                
+                # Overrides for specific ranks if you want emojis INSTEAD of logos
+                # Or you can put the emoji NEXT to the logo. 
+                # Let's keep the Clown for last place because it's funny.
+                
                 if index == 0:
-                    icon = "🏆" 
                     delta_text = "👑 Líder"
-                    delta_sub = "" # No subtitle for the winner
-                    delta_color = "#4CAF50" # Green
-                else:
-                    # Check for last place
-                    if index == total_portfolios - 1:
-                        icon = "🤡" # Clown for last place
-                    elif index == 1: 
-                        icon = "🥈"
-                    elif index == 2: 
-                        icon = "🥉"
-                    else: 
-                        icon = f"#{index+1}"
+                    delta_sub = ""
+                    delta_color = "#4CAF50"
+                    # Optional: Add a trophy next to the logo for the winner
+                    display_element = f'<div style="display:flex; align-items:center;">🏆 <img src="{logo_url}" style="width: 35px; height: 35px; margin-left:5px;"></div>'
                     
+                elif index == total_portfolios - 1:
+                    # Last place gets the Clown emoji INSTEAD of logo (or alongside it)
+                    display_element = "🤡" 
+                    gap = ret - winner_val
+                    delta_text = f"{gap:.1f}%"
+                    delta_sub = "vs Líder"
+                    delta_color = "#FF4B4B"
+
+                else:
+                    # Middle ranks just get the logo
                     gap = ret - winner_val
                     delta_text = f"{gap:.1f}%" 
-                    delta_sub = "vs Líder" # The subtitle you requested
-                    delta_color = "#FF4B4B" # Red
-                
+                    delta_sub = "vs Líder"
+                    delta_color = "#FF4B4B"
+
                 # Custom HTML Row-Card
                 st.markdown(f"""
                 <div class="metric-card" style="border-left: 5px solid {border_color};">
                     <div class="card-col-left">
-                        {icon}
+                        {display_element}
                     </div>
                     <div class="card-col-mid">
                         <div class="mid-name">{p_name}</div>
