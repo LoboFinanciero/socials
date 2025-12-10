@@ -53,7 +53,7 @@ PORTFOLIOS = {
 # Define colors for UI consistency
 COLORS = {
     "Fenrir": "#EC5C73",      # Red/Pink
-    "ChatGPT": "#3CB371",     # Medium Sea Green
+    "ChatGPT": "#16A586",     # Medium Sea Green
     "Gemini": "#00CCFF",      # Cyan
     "SPY": "#808080"          # Gray
 }
