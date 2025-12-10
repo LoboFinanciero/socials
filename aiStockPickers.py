@@ -236,8 +236,6 @@ if get_api_key():
             winner_val = sorted_returns.iloc[0]
 
             # --- CUSTOM CARD DISPLAY (ROW FORMAT) ---
-            # No st.columns() needed here, we want them to stack vertically as rows
-            
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
                 # Determine styling
                 border_color = COLORS.get(p_name, "#ffffff")
@@ -252,26 +250,23 @@ if get_api_key():
                     else: icon = f"#{index+1}"
                     
                     gap = ret - winner_val
-                    delta_text = f"{gap:.1f}%" # Just the number to save space
+                    delta_text = f"{gap:.1f}%" 
                     delta_color = "#FF4B4B" # Red
                 
                 # Custom HTML Row-Card
+                # IMPORTANT: Make sure unsafe_allow_html=True is at the end!
                 st.markdown(f"""
                 <div class="metric-card" style="border-left: 5px solid {border_color};">
-                    
                     <div class="card-col-left">
                         {icon}
                     </div>
-                    
                     <div class="card-col-mid">
                         <div class="mid-name">{p_name}</div>
                         <div class="mid-value">{ret:.1f}%</div>
                     </div>
-                    
                     <div class="card-col-right" style="color: {delta_color};">
                         {delta_text}
                     </div>
-                    
                 </div>
                 """, unsafe_allow_html=True)
 
