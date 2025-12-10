@@ -266,6 +266,8 @@ if get_api_key():
                 yaxis_title=None,
                 xaxis_title=None,
                 hovermode="x unified" # Easier to read on touch
+                dragmode=False,   # Disables panning (dragging) the chart
+                modebar=dict(orientation='v') # Optional: keeps modebar vertical if visible
             )
             
             # KEY UPDATE: config settings for mobile UX
