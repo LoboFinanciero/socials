@@ -59,7 +59,7 @@ def get_api_key():
         st.error("No se encontró la API Key. Por favor revisa tu archivo .streamlit/secrets.toml")
         return None
 
-# @st.cache_data(ttl=86400) 
+@st.cache_data(ttl=86400)
 def fetch_stock_data(ticker, api_key, start_date):
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
     
