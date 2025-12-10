@@ -244,13 +244,14 @@ if get_api_key():
             winner_val = sorted_returns.iloc[0]
 
             # --- CUSTOM CARD DISPLAY (STANDARD ROW FORMAT) ---
+            # --- CUSTOM CARD DISPLAY (SAFE SYNTAX VERSION) ---
             total_portfolios = len(sorted_returns)
             
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
                 border_color = COLORS.get(p_name, "#ffffff")
                 logo_url = LOGOS.get(p_name, "")
                 
-                # 1. Determine the Rank Emoji
+                # 1. Determine the Rank Emoji and Colors
                 if index == 0:
                     rank_emoji = "🏆"
                     delta_color = "#4CAF50" # Green
@@ -275,32 +276,30 @@ if get_api_key():
                     delta_text = f"{gap:.1f}%"
                     delta_sub = "vs Líder"
                 else:
-                    rank_emoji = f"#{index+1}" # Fallback for 4th/5th if not last
+                    rank_emoji = f"#{index+1}"
                     delta_color = "#FF4B4B"
                     gap = ret - winner_val
                     delta_text = f"{gap:.1f}%"
                     delta_sub = "vs Líder"
 
-                # 2. Build the Visual Element (Emoji + Logo)
-                # We use a flex container to align them side-by-side
-                display_element = f"""
-                    <div style="display: flex; align-items: center;">
-                        <span style="font-size: 24px; margin-right: 10px;">{rank_emoji}</span>
-                        <img src="{logo_url}" style="width: 32px; height: 32px; object-fit: contain;">
-                    </div>
-                """
+                # 2. Build the Visual Element (Switching to single quotes to fix blue text)
+                display_element = (
+                    f'<div style="display: flex; align-items: center;">'
+                    f'<span style="font-size: 24px; margin-right: 10px;">{rank_emoji}</span>'
+                    f'<img src="{logo_url}" style="width: 32px; height: 32px; object-fit: contain;">'
+                    f'</div>'
+                )
 
                 # Custom HTML Row-Card
                 st.markdown(f"""
                 <div class="metric-card" style="border-left: 5px solid {border_color};">
-                    <div class="card-col-left" style="width: 25%;"> {display_element}
+                    <div class="card-col-left" style="width: 25%;"> 
+                        {display_element}
                     </div>
-                    
                     <div class="card-col-mid">
                         <div class="mid-name">{p_name}</div>
                         <div class="mid-value">{ret:.1f}%</div>
                     </div>
-                    
                     <div class="card-col-right" style="color: {delta_color};">
                         <div>{delta_text}</div>
                         <div style="font-size: 9px; opacity: 0.7; color: #ccc;">{delta_sub}</div>
