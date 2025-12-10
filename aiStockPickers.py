@@ -265,7 +265,7 @@ if get_api_key():
                 margin=dict(l=10, r=10, t=20, b=20), # Tight margins for mobile
                 yaxis_title=None,
                 xaxis_title=None,
-                hovermode="x unified" # Easier to read on touch
+                hovermode="x unified", # Easier to read on touch
                 dragmode=False,   # Disables panning (dragging) the chart
                 modebar=dict(orientation='v') # Optional: keeps modebar vertical if visible
             )
