@@ -161,34 +161,55 @@ def calculate_portfolio_performance(master_df, portfolios):
 # CSS INJECTION FOR CUSTOM CARDS
 st.markdown("""
 <style>
-    /* Mobile-first card style */
     .metric-card {
-        background-color: #262730; /* Dark mode card bg */
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        background-color: #262730;
+        border-radius: 8px;
+        padding: 12px 15px;
+        margin-bottom: 8px; /* Less space between cards */
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         color: white;
-        text-align: center;
         border: 1px solid #333;
+        
+        /* THE MAGIC SAUCE: Horizontal Layout */
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
-    .metric-value {
-        font-size: 28px;
+    
+    /* Column 1: Rank/Icon */
+    .card-col-left {
+        width: 15%;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Column 2: Name & % */
+    .card-col-mid {
+        flex-grow: 1;
+        padding-left: 15px;
+        text-align: left;
+    }
+    .mid-name {
+        font-size: 14px;
         font-weight: bold;
-        margin: 5px 0;
+        color: #ddd;
+        margin-bottom: 2px;
     }
-    .metric-label {
-        font-size: 14px;
-        opacity: 0.8;
-        text-transform: uppercase;
-        letter-spacing: 1px;
+    .mid-value {
+        font-size: 20px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
     }
-    .metric-delta {
-        font-size: 14px;
+    
+    /* Column 3: Delta */
+    .card-col-right {
+        text-align: right;
+        font-size: 13px;
         font-weight: 500;
+        min-width: 80px; /* Ensure space for the text */
     }
-    /* Adjust for light mode automatically via media query if needed, 
-       but forced dark styling usually looks better for finance dashboards */
 </style>
 """, unsafe_allow_html=True)
 
@@ -214,37 +235,45 @@ if get_api_key():
             sorted_returns = total_returns.sort_values(ascending=False)
             winner_val = sorted_returns.iloc[0]
 
-            # --- CUSTOM CARD DISPLAY ---
-            # We use st.columns but render HTML cards inside them
-            cols = st.columns(len(sorted_returns))
+            # --- CUSTOM CARD DISPLAY (ROW FORMAT) ---
+            # No st.columns() needed here, we want them to stack vertically as rows
             
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
-                with cols[index]:
-                    # Determine styling
-                    border_color = COLORS.get(p_name, "#ffffff")
+                # Determine styling
+                border_color = COLORS.get(p_name, "#ffffff")
+                
+                if index == 0:
+                    icon = "🏆" # Trophy
+                    delta_text = "👑 Líder"
+                    delta_color = "#4CAF50" # Green
+                else:
+                    if index == 1: icon = "🥈"
+                    elif index == 2: icon = "🥉"
+                    else: icon = f"#{index+1}"
                     
-                    if index == 0:
-                        prefix = "🏆 LÍDER"
-                        delta_text = "👑 Ganando"
-                        delta_color = "#4CAF50" # Green
-                    else:
-                        if index == 1: prefix = "🥈 SEGUNDO"
-                        elif index == 2: prefix = "🥉 TERCERO"
-                        else: prefix = f"#{index+1}"
-                        
-                        gap = ret - winner_val
-                        delta_text = f"{gap:.1f}% vs Líder"
-                        delta_color = "#FF4B4B" # Red
+                    gap = ret - winner_val
+                    delta_text = f"{gap:.1f}%" # Just the number to save space
+                    delta_color = "#FF4B4B" # Red
+                
+                # Custom HTML Row-Card
+                st.markdown(f"""
+                <div class="metric-card" style="border-left: 5px solid {border_color};">
                     
-                    # Custom HTML Card
-                    st.markdown(f"""
-                    <div class="metric-card" style="border-top: 5px solid {border_color};">
-                        <div class="metric-label">{prefix}</div>
-                        <div style="font-size: 18px; font-weight: bold; margin-top: 5px;">{p_name}</div>
-                        <div class="metric-value">{ret:.1f}%</div>
-                        <div class="metric-delta" style="color: {delta_color};">{delta_text}</div>
+                    <div class="card-col-left">
+                        {icon}
                     </div>
-                    """, unsafe_allow_html=True)
+                    
+                    <div class="card-col-mid">
+                        <div class="mid-name">{p_name}</div>
+                        <div class="mid-value">{ret:.1f}%</div>
+                    </div>
+                    
+                    <div class="card-col-right" style="color: {delta_color};">
+                        {delta_text}
+                    </div>
+                    
+                </div>
+                """, unsafe_allow_html=True)
 
             # --- PLOTLY CHART ---
             st.markdown("---")
