@@ -12,42 +12,50 @@ START_DATE = "2025-12-05"
 
 PORTFOLIOS = {
     "ChatGPT": [
-    "MSFT",  # Microsoft
-    "NVDA",  # NVIDIA
-    "GOOGL", # Alphabet
-    "AMZN",  # Amazon
-    "META",  # Meta Platforms
-    "AAPL",  # Apple
-    "TSLA",  # Tesla
-    "INTC",  # Intel
-    "PYPL",  # PayPal
-    "EXC"    # Exelon
-],
+        "MSFT",  # Microsoft
+        "NVDA",  # NVIDIA
+        "GOOGL", # Alphabet
+        "AMZN",  # Amazon
+        "META",  # Meta Platforms
+        "AAPL",  # Apple
+        "TSLA",  # Tesla
+        "INTC",  # Intel
+        "PYPL",  # PayPal
+        "EXC"    # Exelon
+    ],
     "Gemini": [
-    "VRT",   # Vertiv Holdings
-    "FIX",   # Comfort Systems USA
-    "CIEN",  # Ciena Corporation
-    "APP",   # AppLovin
-    "PLTR",  # Palantir Technologies
-    "CRWD",  # CrowdStrike Holdings
-    "SHOP",  # Shopify
-    "DASH",  # DoorDash
-    "UBER",  # Uber Technologies
-    "HIMS"   # Hims & Hers Health
-],
+        "VRT",   # Vertiv Holdings
+        "FIX",   # Comfort Systems USA
+        "CIEN",  # Ciena Corporation
+        "APP",   # AppLovin
+        "PLTR",  # Palantir Technologies
+        "CRWD",  # CrowdStrike Holdings
+        "SHOP",  # Shopify
+        "DASH",  # DoorDash
+        "UBER",  # Uber Technologies
+        "HIMS"   # Hims & Hers Health
+    ],
     "Fenrir": [
-    "DBX",  # Dropbox
-    "MTCH", # Match Group
-    "GFS",  # GlobalFoundries
-    "MRNA", # Moderna
-    "PEGA", # Pegasystems
-    "AMKR", # Amkor Technology
-    "GTM",  # Granite Ridge (or ticker GTM depending on context)
-    "BBWI", # Bath & Body Works
-    "SMCI", # Super Micro Computer
-    "ALGM"  # Allegro MicroSystems
-], 
+        "DBX",  # Dropbox
+        "MTCH", # Match Group
+        "GFS",  # GlobalFoundries
+        "MRNA", # Moderna
+        "PEGA", # Pegasystems
+        "AMKR", # Amkor Technology
+        "GTM",  # Granite Ridge
+        "BBWI", # Bath & Body Works
+        "SMCI", # Super Micro Computer
+        "ALGM"  # Allegro MicroSystems
+    ], 
     "SPY": ["SPY"]
+}
+
+# Define colors for UI consistency
+COLORS = {
+    "Fenrir": "#EC5C73",      # Red/Pink
+    "ChatGPT": "#3CB371",     # Medium Sea Green
+    "Gemini": "#00CCFF",      # Cyan
+    "SPY": "#808080"          # Gray
 }
 
 # --- FUNCIONES ---
@@ -63,7 +71,6 @@ def get_api_key():
 def fetch_stock_data(ticker, api_key, start_date):
     url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}"
     
-    # Usamos adjClose para considerar dividendos y splits
     params = {
         "apikey": api_key, 
         "from": start_date
@@ -77,13 +84,8 @@ def fetch_stock_data(ticker, api_key, start_date):
             df = pd.DataFrame(data["historical"])
             df['date'] = pd.to_datetime(df['date'])
             df = df.sort_values('date')
-            
-            # Seleccionar 'adjClose'
             df = df[['date', 'adjClose']] 
-            
-            # Renombrar columna al ticker
             df = df.rename(columns={'adjClose': ticker})
-            
             df.set_index('date', inplace=True)
             return df
         else:
@@ -100,7 +102,6 @@ def get_all_data(portfolios, start_date):
     all_tickers = list(set([t for tickers in portfolios.values() for t in tickers]))
     master_df = pd.DataFrame()
     
-    # Texto de carga en español
     status_text = st.empty()
     status_text.text("Fenrir está cazando datos...")
     
@@ -117,7 +118,6 @@ def get_all_data(portfolios, start_date):
 
 def get_stock_returns(master_df, portfolios):
     """Calcula el retorno total % para cada acción individual."""
-    # Limpiar datos
     df = master_df.ffill().dropna()
     if df.empty: return {}
 
@@ -135,7 +135,6 @@ def get_stock_returns(master_df, portfolios):
                 total_ret = ((end_prices[ticker] - start_prices[ticker]) / start_prices[ticker]) * 100
                 p_data.append({"Stock": ticker, "Return": total_ret})
         
-        # Crear dataframe y ordenar
         p_df = pd.DataFrame(p_data)
         if not p_df.empty:
             p_df = p_df.sort_values("Return", ascending=False)
@@ -147,7 +146,6 @@ def calculate_portfolio_performance(master_df, portfolios):
     clean_df = master_df.ffill().dropna()
     if clean_df.empty: return pd.DataFrame()
 
-    # Normalizar a 100
     normalized_df = (clean_df / clean_df.iloc[0]) * 100
     performance_df = pd.DataFrame(index=normalized_df.index)
 
@@ -160,6 +158,40 @@ def calculate_portfolio_performance(master_df, portfolios):
 
 # --- MAIN APP UI ---
 
+# CSS INJECTION FOR CUSTOM CARDS
+st.markdown("""
+<style>
+    /* Mobile-first card style */
+    .metric-card {
+        background-color: #262730; /* Dark mode card bg */
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        color: white;
+        text-align: center;
+        border: 1px solid #333;
+    }
+    .metric-value {
+        font-size: 28px;
+        font-weight: bold;
+        margin: 5px 0;
+    }
+    .metric-label {
+        font-size: 14px;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .metric-delta {
+        font-size: 14px;
+        font-weight: 500;
+    }
+    /* Adjust for light mode automatically via media query if needed, 
+       but forced dark styling usually looks better for finance dashboards */
+</style>
+""", unsafe_allow_html=True)
+
 st.title("🐺 Batalla de Portafolios")
 
 # Fetch Data
@@ -167,11 +199,9 @@ if get_api_key():
     raw_data = get_all_data(PORTFOLIOS, START_DATE)
     
     if not raw_data.empty:
-        # Calcular fecha más reciente
         latest_date = raw_data.index.max().strftime('%Y-%m-%d')
         st.caption(f"Rendimiento desde: **{START_DATE}** | Hasta: **{latest_date}**")
 
-        # 1. Procesar Datos del Gráfico
         chart_data = calculate_portfolio_performance(raw_data, PORTFOLIOS)
         
         if not chart_data.empty:
@@ -179,94 +209,95 @@ if get_api_key():
             final_vals = chart_data.iloc[-1]
             start_vals = chart_data.iloc[0]
             total_returns = ((final_vals - start_vals) / start_vals) * 100
-            
-            # Métricas
-            final_vals = chart_data.iloc[-1]
-            start_vals = chart_data.iloc[0]
-            total_returns = ((final_vals - start_vals) / start_vals) * 100
 
-            # --- NEW SORTING LOGIC ---
-            # 1. Sort values from highest to lowest
+            # --- SORTING LOGIC ---
             sorted_returns = total_returns.sort_values(ascending=False)
-            
-            # 2. Create columns based on sorted data
+            winner_val = sorted_returns.iloc[0]
+
+            # --- CUSTOM CARD DISPLAY ---
+            # We use st.columns but render HTML cards inside them
             cols = st.columns(len(sorted_returns))
-            
-            # 3. Iterate and display with "Winner" logic
-            winner_val = sorted_returns.iloc[0] # The highest value
             
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
                 with cols[index]:
-                    # Determine styling based on rank
+                    # Determine styling
+                    border_color = COLORS.get(p_name, "#ffffff")
+                    
                     if index == 0:
-                        label = f"🏆 {p_name} (Líder)"
-                        # No delta, or a custom text
-                        st.metric(label=label, value=f"{ret:.1f}%", delta="Ganando")
+                        prefix = "🏆 LÍDER"
+                        delta_text = "👑 Ganando"
+                        delta_color = "#4CAF50" # Green
                     else:
-                        # Add Medals for 2nd and 3rd
-                        if index == 1: prefix = "🥈"
-                        elif index == 2: prefix = "🥉"
+                        if index == 1: prefix = "🥈 SEGUNDO"
+                        elif index == 2: prefix = "🥉 TERCERO"
                         else: prefix = f"#{index+1}"
                         
-                        label = f"{prefix} {p_name}"
-                        
-                        # Calculate gap vs the Winner
                         gap = ret - winner_val
-                        # Display metric with the gap (will show red automatically if negative)
-                        st.metric(label=label, value=f"{ret:.1f}%", delta=f"{gap:.1f}%")
+                        delta_text = f"{gap:.1f}% vs Líder"
+                        delta_color = "#FF4B4B" # Red
+                    
+                    # Custom HTML Card
+                    st.markdown(f"""
+                    <div class="metric-card" style="border-top: 5px solid {border_color};">
+                        <div class="metric-label">{prefix}</div>
+                        <div style="font-size: 18px; font-weight: bold; margin-top: 5px;">{p_name}</div>
+                        <div class="metric-value">{ret:.1f}%</div>
+                        <div class="metric-delta" style="color: {delta_color};">{delta_text}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
-            # Gráfico (Más alto para celular)
+            # --- PLOTLY CHART ---
             st.markdown("---")
             
-            # Etiquetas en español
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
-                          labels={"value": "Valor Normalizado ($)", "date": "Fecha", "variable": "Portafolio"},
-                          color_discrete_map={
-                              # FIX: Use "SPY" (the dictionary key), not "SPY"
-                              "SPY": "gray",  
-                              
-                              # Fenrir: A blood orange/red hex code
-                              "Fenrir": "#EC5C73",  
-                              
-                              # ChatGPT: A standard CSS named color
-                              "ChatGPT": "mediumseagreen", 
-                              
-                              # Gemini: A bright cyan hex code to pop against dark mode
-                              "Gemini": "#00CCFF"   
-                          })
+                          labels={"value": "Valor Normalizado", "date": "Fecha", "variable": "Portafolio"},
+                          color_discrete_map=COLORS)
             
             fig.update_layout(
-                height=600, 
-                legend=dict(orientation="h", y=-0.2, x=0, title=None),
-                margin=dict(l=20, r=20, t=20, b=20),
+                height=500, # Slightly shorter for mobile scannability
+                legend=dict(
+                    orientation="h", 
+                    y=-0.2, 
+                    x=0, 
+                    title=None,
+                    font=dict(size=10) # Smaller font for mobile
+                ),
+                margin=dict(l=10, r=10, t=20, b=20), # Tight margins for mobile
                 yaxis_title=None,
-                xaxis_title=None
+                xaxis_title=None,
+                hovermode="x unified" # Easier to read on touch
             )
-            st.plotly_chart(fig, use_container_width=True)
+            
+            # KEY UPDATE: config settings for mobile UX
+            st.plotly_chart(
+                fig, 
+                use_container_width=True,
+                config={
+                    'scrollZoom': False,       # PREVENTS ACCIDENTAL ZOOMING ON SCROLL
+                    'displayModeBar': False,   # Hides the toolbar to keep it clean
+                    'staticPlot': False
+                }
+            )
             
             # 2. Tablas Individuales
             st.markdown("### Desglose por Portafolio")
             
             stock_returns = get_stock_returns(raw_data, PORTFOLIOS)
             
-            # Columnas
             p_cols = st.columns(3)
             target_portfolios = ["ChatGPT", "Gemini", "Fenrir"]
             
             for i, p_name in enumerate(target_portfolios):
                 with p_cols[i]:
-                    st.subheader(p_name)
+                    # Use markdown with color for the header
+                    st.markdown(f"<h4 style='color: {COLORS.get(p_name, 'white')}; border-bottom: 2px solid {COLORS.get(p_name, 'white')}'>{p_name}</h4>", unsafe_allow_html=True)
+                    
                     if p_name in stock_returns:
                         df = stock_returns[p_name]
-                        
-                        # Copia para visualización en español
                         df_display = df.copy()
-                        df_display.columns = ["Acción", "Rendimiento"] # Renombrar headers
+                        df_display.columns = ["Acción", "Retorno"]
+                        df_display["Retorno"] = df_display["Retorno"].map("{:+.2f}%".format)
                         
-                        # Formato porcentaje
-                        df_display["Rendimiento"] = df_display["Rendimiento"].map("{:+.2f}%".format)
-                        
-                        # Mostrar tabla limpia
                         st.dataframe(
                             df_display, 
                             hide_index=True, 
