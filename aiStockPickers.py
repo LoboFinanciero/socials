@@ -236,25 +236,37 @@ if get_api_key():
             winner_val = sorted_returns.iloc[0]
 
             # --- CUSTOM CARD DISPLAY (ROW FORMAT) ---
+            
+            # Get the total count to find who is last
+            total_portfolios = len(sorted_returns)
+            
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
                 # Determine styling
                 border_color = COLORS.get(p_name, "#ffffff")
                 
+                # --- ICON LOGIC ---
                 if index == 0:
-                    icon = "🏆" # Trophy
+                    icon = "🏆" 
                     delta_text = "👑 Líder"
+                    delta_sub = "" # No subtitle for the winner
                     delta_color = "#4CAF50" # Green
                 else:
-                    if index == 1: icon = "🥈"
-                    elif index == 2: icon = "🥉"
-                    else: icon = f"#{index+1}"
+                    # Check for last place
+                    if index == total_portfolios - 1:
+                        icon = "🤡" # Clown for last place
+                    elif index == 1: 
+                        icon = "🥈"
+                    elif index == 2: 
+                        icon = "🥉"
+                    else: 
+                        icon = f"#{index+1}"
                     
                     gap = ret - winner_val
                     delta_text = f"{gap:.1f}%" 
+                    delta_sub = "vs Líder" # The subtitle you requested
                     delta_color = "#FF4B4B" # Red
                 
                 # Custom HTML Row-Card
-                # IMPORTANT: Make sure unsafe_allow_html=True is at the end!
                 st.markdown(f"""
                 <div class="metric-card" style="border-left: 5px solid {border_color};">
                     <div class="card-col-left">
@@ -265,13 +277,15 @@ if get_api_key():
                         <div class="mid-value">{ret:.1f}%</div>
                     </div>
                     <div class="card-col-right" style="color: {delta_color};">
-                        {delta_text}
+                        <div>{delta_text}</div>
+                        <div style="font-size: 9px; opacity: 0.7; color: #ccc;">{delta_sub}</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             # --- PLOTLY CHART ---
             st.markdown("---")
+            st.subheader("📈 Historial de Rendimiento") # Added Title
             
             fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
                           labels={"value": "Valor Normalizado", "date": "Fecha", "variable": "Portafolio"},
