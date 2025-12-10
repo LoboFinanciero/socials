@@ -243,53 +243,64 @@ if get_api_key():
             sorted_returns = total_returns.sort_values(ascending=False)
             winner_val = sorted_returns.iloc[0]
 
-            # --- CUSTOM CARD DISPLAY (WITH LOGOS) ---
+            # --- CUSTOM CARD DISPLAY (STANDARD ROW FORMAT) ---
             total_portfolios = len(sorted_returns)
             
             for index, (p_name, ret) in enumerate(sorted_returns.items()):
                 border_color = COLORS.get(p_name, "#ffffff")
                 logo_url = LOGOS.get(p_name, "")
                 
-                # --- ICON/LOGO LOGIC ---
-                # Default: Show the Logo
-                display_element = f'<img src="{logo_url}" style="width: 40px; height: 40px; object-fit: contain;">'
-                
-                # Overrides for specific ranks if you want emojis INSTEAD of logos
-                # Or you can put the emoji NEXT to the logo. 
-                # Let's keep the Clown for last place because it's funny.
-                
+                # 1. Determine the Rank Emoji
                 if index == 0:
+                    rank_emoji = "🏆"
+                    delta_color = "#4CAF50" # Green
                     delta_text = "👑 Líder"
                     delta_sub = ""
-                    delta_color = "#4CAF50"
-                    # Optional: Add a trophy next to the logo for the winner
-                    display_element = f'<div style="display:flex; align-items:center;">🏆 <img src="{logo_url}" style="width: 35px; height: 35px; margin-left:5px;"></div>'
-                    
                 elif index == total_portfolios - 1:
-                    # Last place gets the Clown emoji INSTEAD of logo (or alongside it)
-                    display_element = "🤡" 
+                    rank_emoji = "🤡"
+                    delta_color = "#FF4B4B" # Red
                     gap = ret - winner_val
                     delta_text = f"{gap:.1f}%"
                     delta_sub = "vs Líder"
+                elif index == 1:
+                    rank_emoji = "🥈"
                     delta_color = "#FF4B4B"
-
-                else:
-                    # Middle ranks just get the logo
                     gap = ret - winner_val
-                    delta_text = f"{gap:.1f}%" 
+                    delta_text = f"{gap:.1f}%"
                     delta_sub = "vs Líder"
+                elif index == 2:
+                    rank_emoji = "🥉"
                     delta_color = "#FF4B4B"
+                    gap = ret - winner_val
+                    delta_text = f"{gap:.1f}%"
+                    delta_sub = "vs Líder"
+                else:
+                    rank_emoji = f"#{index+1}" # Fallback for 4th/5th if not last
+                    delta_color = "#FF4B4B"
+                    gap = ret - winner_val
+                    delta_text = f"{gap:.1f}%"
+                    delta_sub = "vs Líder"
+
+                # 2. Build the Visual Element (Emoji + Logo)
+                # We use a flex container to align them side-by-side
+                display_element = f"""
+                    <div style="display: flex; align-items: center;">
+                        <span style="font-size: 24px; margin-right: 10px;">{rank_emoji}</span>
+                        <img src="{logo_url}" style="width: 32px; height: 32px; object-fit: contain;">
+                    </div>
+                """
 
                 # Custom HTML Row-Card
                 st.markdown(f"""
                 <div class="metric-card" style="border-left: 5px solid {border_color};">
-                    <div class="card-col-left">
-                        {display_element}
+                    <div class="card-col-left" style="width: 25%;"> {display_element}
                     </div>
+                    
                     <div class="card-col-mid">
                         <div class="mid-name">{p_name}</div>
                         <div class="mid-value">{ret:.1f}%</div>
                     </div>
+                    
                     <div class="card-col-right" style="color: {delta_color};">
                         <div>{delta_text}</div>
                         <div style="font-size: 9px; opacity: 0.7; color: #ccc;">{delta_sub}</div>
