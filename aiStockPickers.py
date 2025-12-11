@@ -253,7 +253,6 @@ if get_api_key():
             sorted_returns = total_returns.sort_values(ascending=False)
             winner_val = sorted_returns.iloc[0]
 
-            # --- CUSTOM CARD DISPLAY (STANDARD ROW FORMAT) ---
             # --- CUSTOM CARD DISPLAY (SAFE SYNTAX VERSION) ---
             total_portfolios = len(sorted_returns)
             
@@ -319,36 +318,48 @@ if get_api_key():
 
             # --- PLOTLY CHART ---
             st.markdown("---")
-            st.subheader("Historial de Rendimiento") # Added Title
+            st.subheader("Historial de Rendimiento") 
             
-            fig = px.line(chart_data, x=chart_data.index, y=chart_data.columns, 
-                          labels={"value": "Valor Normalizado", "date": "Fecha", "variable": "Portafolio"},
+            # 1. Convert index to string so Plotly treats it as categories (skips weekends)
+            # We create a temporary copy so we don't mess up the original data
+            chart_data_display = chart_data.copy()
+            chart_data_display.index = chart_data_display.index.strftime('%Y-%m-%d')
+
+            fig = px.line(chart_data_display, x=chart_data_display.index, y=chart_data_display.columns, 
+                          labels={"value": "Valor Normalizado", "index": "Fecha", "variable": "Portafolio"},
                           color_discrete_map=COLORS)
             
             fig.update_layout(
-                height=500, # Slightly shorter for mobile scannability
+                height=500, 
                 legend=dict(
                     orientation="h", 
                     y=-0.2, 
                     x=0, 
                     title=None,
-                    font=dict(size=10) # Smaller font for mobile
+                    font=dict(size=10) 
                 ),
-                margin=dict(l=10, r=10, t=20, b=20), # Tight margins for mobile
+                margin=dict(l=10, r=10, t=20, b=20),
                 yaxis_title=None,
                 xaxis_title=None,
-                hovermode="x unified", # Easier to read on touch
-                dragmode=False,   # Disables panning (dragging) the chart
-                modebar=dict(orientation='v') # Optional: keeps modebar vertical if visible
+                hovermode="x unified", 
+                dragmode=False,
+                
+                # 2. OPTIONAL: Reduce clutter on the x-axis
+                # Since we are using strings now, every single day might try to show up as a label.
+                # This setting tells Plotly to not clutter the axis with too many ticks.
+                xaxis=dict(
+                    type='category', 
+                    tickmode='auto', 
+                    nticks=10
+                )
             )
             
-            # KEY UPDATE: config settings for mobile UX
             st.plotly_chart(
                 fig, 
                 use_container_width=True,
                 config={
-                    'scrollZoom': False,       # PREVENTS ACCIDENTAL ZOOMING ON SCROLL
-                    'displayModeBar': False,   # Hides the toolbar to keep it clean
+                    'scrollZoom': False,       
+                    'displayModeBar': False,   
                     'staticPlot': False
                 }
             )
