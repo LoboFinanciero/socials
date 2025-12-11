@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 import plotly.express as px
 from datetime import datetime
+import base64
+import os
 
 # --- CONFIGURACIÓN ---
 st.set_page_config(page_title="Batalla de Portafolios", layout="wide")
@@ -58,12 +60,20 @@ COLORS = {
     "SPY": "#808080"          # Gray
 }
 
+def get_img_as_base64(file_path):
+    """Reads a file from the repo and converts it to base64 for HTML."""
+    if not os.path.exists(file_path):
+        return "" # Returns empty if file is missing
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
 # Logo URLs (Find transparent PNGs for best look)
 LOGOS = {
-    "ChatGPT": "https://github.com/LoboFinanciero/socials/blob/main/assets/chatgpt_logo.png?raw=true",
-    "Gemini": "https://github.com/LoboFinanciero/socials/blob/main/assets/gemini_logo.png?raw=true", 
-    "Fenrir": "https://github.com/LoboFinanciero/socials/blob/main/assets/fenrir_logo.png?raw=true",
-    "SPY": "https://github.com/LoboFinanciero/socials/blob/main/assets/spy_logo.png?raw=true"
+    "ChatGPT": f"data:image/png;base64,{get_img_as_base64('assets/chatgpt_logo.png')}",
+    "Gemini":  f"data:image/png;base64,{get_img_as_base64('assets/gemini_logo.png')}", 
+    "Fenrir":  f"data:image/png;base64,{get_img_as_base64('assets/fenrir_logo.png')}",
+    "SPY":     f"data:image/png;base64,{get_img_as_base64('assets/spy_logo.png')}"
 }
 
 # --- FUNCIONES ---
