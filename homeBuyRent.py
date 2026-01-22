@@ -22,7 +22,8 @@ with st.sidebar:
     
     st.header("3. Financial Assumptions")
     inflation = st.slider("Expected Annual Inflation (%)", 3.0, 7.0, 4.5) / 100
-    appreciation = st.slider("Annual Home Appreciation (%)", 3.0, 9.0, 5.5) / 100
+    appreciation_rate = st.slider("Annual Home Appreciation (%)", 0.0, 10.0, 6.0) / 100
+    rent_inflation_rate = st.slider("Annual Rent Increase (%)", 0.0, 10.0, 4.5) / 100
     inv_return = st.slider("Investment Return (e.g. S&P 500/CETES) (%)", 5.0, 15.0, 10.0) / 100
     marginal_tax_rate = st.slider("Your Tax Rate (ISR Bracket) (%)", 20, 35, 30) / 100
 
@@ -187,3 +188,11 @@ st.markdown(f"""
 * **The Tipping Point:** Notice the slope change for the Buyer at Year {loan_term_years}. This is when you stop paying the bank and start paying yourself.
 * **Liquidity:** The Renter's wealth is 100% liquid (cash/stocks). The Buyer's wealth is heavily tied to the physical house until Year 50.
 """)
+
+# Create a summary table every 5 years
+summary_data = df[df['Year'] % 5 == 0].copy()
+summary_data['Buyer Net Worth'] = summary_data['Buyer Net Worth'].map('${:,.0f}'.format)
+summary_data['Renter Net Worth'] = summary_data['Renter Net Worth'].map('${:,.0f}'.format)
+
+st.subheader("📋 5-Year Snapshot")
+st.table(summary_data[['Year', 'Buyer Net Worth', 'Renter Net Worth']])
