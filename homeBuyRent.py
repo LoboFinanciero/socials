@@ -27,6 +27,11 @@ with st.sidebar:
     inv_return = st.slider("Investment Return (e.g. S&P 500/CETES) (%)", 5.0, 15.0, 10.0) / 100
     marginal_tax_rate = st.slider("Your Tax Rate (ISR Bracket) (%)", 20, 35, 30) / 100
 
+    st.sidebar.header("4. Tax Regime")
+    is_resico = st.sidebar.checkbox("Are you in RESICO?", value=False)
+    if is_resico:
+        st.sidebar.caption("⚠️ RESICO cannot deduct mortgage interest. Tax refund will be 0.")
+
 # --- CALCULATIONS ---
 # Initial Cash Outlay
 down_payment_val = prop_price * (down_payment_pct / 100)
@@ -62,45 +67,37 @@ for m in range(1, months + 1):
     # 1. Update House Value and Rent (Annual adjustments)
     if m % 12 == 0:
         house_value[m] = house_value[m-1] * (1 + appreciation)
-        current_rent *= (1 + rent_increase) # Using the new rent_increase variable
+        current_rent *= (1 + rent_increase) 
     else:
         house_value[m] = house_value[m-1]
     
     # 2. Buyer Calculations
     if m <= n_payments:
-        # Interest & Principal logic
         interest_payment = remaining_loan[m-1] * monthly_rate
         principal_payment = monthly_mortgage - interest_payment
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_payment)
         
-        # SAT Tax Refund (Annual Injection)
+        # SAT Tax Refund Logic
         tax_refund = 0
-        if m % 12 == 4:
-            # Deducting Real Interest (Rate - Inflation)
+        if not is_resico and m % 12 == 4:
+            # Only calculate if not in RESICO
             real_interest = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            deductible_amount = min(real_interest, 214000) # 2026 UMA Cap approx
+            deductible_amount = min(real_interest, 214000) 
             tax_refund = deductible_amount * marginal_tax_rate
         
-        # Total Buyer Outflow (Cash leaving their pocket)
         buyer_monthly_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
-        
-        # Buyer's small investment portfolio (from tax refunds)
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + tax_refund
     else:
-        # AFTER MORTGAGE: The "Pivot"
+        # AFTER MORTGAGE: The Pivot
         remaining_loan[m] = 0
-        # Buyer only pays maintenance now
         buyer_monthly_outflow = (house_value[m] * annual_maint_pct / 12)
         
-        # Pivot: Buyer now invests what used to be their mortgage payment
+        # The Pivot: Redirecting former mortgage payment to wealth building
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + monthly_mortgage
 
     # 3. Renter Simulation (The "Matching" Principle)
-    # The Renter's 'Savings Potential' is the Buyer's total outflow minus the Rent.
-    # If the Buyer is spending $45k and Rent is $25k, the Renter invests $20k.
-    # If later on Rent ($60k) is more than Buyer Maint ($5k), the savings become negative, 
-    # meaning the Renter is pulling money OUT of their portfolio to pay rent.
-    
+    # This is where we ensure the Renter matches the Buyer's spending.
+    # If rent is low, they save the extra. If rent is high, they withdraw from savings.
     savings_potential = buyer_monthly_outflow - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
 
