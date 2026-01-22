@@ -73,7 +73,10 @@ for m in range(1, months + 1):
             tax_refund = min(real_int, 214000) * marginal_tax_rate
         
         buyer_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
-        buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + tax_refund
+        # The refund goes directly to reduce the debt
+        remaining_loan[m] = max(0, remaining_loan[m-1] - tax_refund)
+        # Buyer investments now only grow with interest (no new money until the loan is over)
+        buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12)
     else:
         remaining_loan[m] = 0
         buyer_outflow = (house_value[m] * annual_maint_pct / 12)
