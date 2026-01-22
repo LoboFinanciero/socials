@@ -22,8 +22,8 @@ with st.sidebar:
     
     st.header("3. Financial Assumptions")
     inflation = st.slider("Expected Annual Inflation (%)", 3.0, 7.0, 4.5) / 100
-    appreciation_rate = st.slider("Annual Home Appreciation (%)", 0.0, 10.0, 6.0) / 100
-    rent_inflation_rate = st.slider("Annual Rent Increase (%)", 0.0, 10.0, 4.5) / 100
+    appreciation = st.sidebar.slider("Annual Home Appreciation (%)", 2.0, 10.0, 6.0) / 100
+    rent_increase = st.sidebar.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
     inv_return = st.slider("Investment Return (e.g. S&P 500/CETES) (%)", 5.0, 15.0, 10.0) / 100
     marginal_tax_rate = st.slider("Your Tax Rate (ISR Bracket) (%)", 20, 35, 30) / 100
 
@@ -62,37 +62,45 @@ for m in range(1, months + 1):
     # 1. Update House Value and Rent (Annual adjustments)
     if m % 12 == 0:
         house_value[m] = house_value[m-1] * (1 + appreciation)
-        current_rent *= (1 + inflation)
+        current_rent *= (1 + rent_increase) # Using the new rent_increase variable
     else:
         house_value[m] = house_value[m-1]
     
-    # 2. Buyer Mortgage & Equity
+    # 2. Buyer Calculations
     if m <= n_payments:
+        # Interest & Principal logic
         interest_payment = remaining_loan[m-1] * monthly_rate
         principal_payment = monthly_mortgage - interest_payment
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_payment)
         
-        # SAT Tax Refund Calculation (Annual - paid in month 4 of every year)
-        # Formula: (Rate - Inflation) * Balance
+        # SAT Tax Refund (Annual Injection)
         tax_refund = 0
         if m % 12 == 4:
+            # Deducting Real Interest (Rate - Inflation)
             real_interest = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            # Cap check (Simplified: 15% income or ~214k MXN)
-            deductible_amount = min(real_interest, 214000)
+            deductible_amount = min(real_interest, 214000) # 2026 UMA Cap approx
             tax_refund = deductible_amount * marginal_tax_rate
         
+        # Total Buyer Outflow (Cash leaving their pocket)
         buyer_monthly_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
+        
+        # Buyer's small investment portfolio (from tax refunds)
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + tax_refund
     else:
-        # AFTER MORTGAGE: Buyer redirects mortgage payment to investments
+        # AFTER MORTGAGE: The "Pivot"
         remaining_loan[m] = 0
+        # Buyer only pays maintenance now
         buyer_monthly_outflow = (house_value[m] * annual_maint_pct / 12)
-        # The "Pivot": Mortgage money is now saved
+        
+        # Pivot: Buyer now invests what used to be their mortgage payment
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + monthly_mortgage
 
-    # 3. Renter Simulation
-    # Renter monthly budget matches Buyer's initial monthly outflow
-    # Renter invests the difference: (Buyer Outflow - Current Rent)
+    # 3. Renter Simulation (The "Matching" Principle)
+    # The Renter's 'Savings Potential' is the Buyer's total outflow minus the Rent.
+    # If the Buyer is spending $45k and Rent is $25k, the Renter invests $20k.
+    # If later on Rent ($60k) is more than Buyer Maint ($5k), the savings become negative, 
+    # meaning the Renter is pulling money OUT of their portfolio to pay rent.
+    
     savings_potential = buyer_monthly_outflow - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
 
