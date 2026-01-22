@@ -3,201 +3,130 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-# --- CONFIGURATION & STYLING ---
-st.set_page_config(page_title="Buy vs Rent Mexico: 50-Year Analysis", layout="wide")
-st.title("🏡 Buy vs. Rent: The 50-Year Net Worth Battle (Mexico Edition)")
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Mexico Buy vs Rent: 50Y Analysis", layout="wide")
+st.title("🏡 The 50-Year Wealth Battle: Buying vs. Renting in Mexico")
 
-# --- SIDEBAR INPUTS ---
+# --- SIDEBAR: INPUTS ---
 with st.sidebar:
-    st.header("1. Property Details (MXN)")
-    prop_price = st.number_input("Property Price", value=5_000_000, step=100_000)
+    st.header("1. Property & Mortgage")
+    prop_price = st.number_input("Property Price (MXN)", value=5_000_000, step=100_000)
     down_payment_pct = st.slider("Down Payment (%)", 10, 50, 20)
     closing_costs_pct = st.slider("Closing Costs (ISAI, Notary) (%)", 4, 9, 6)
     mortgage_rate = st.slider("Mortgage Interest Rate (%)", 8.0, 14.0, 11.0) / 100
     loan_term_years = st.selectbox("Loan Term (Years)", [15, 20], index=1)
     
-    st.header("2. Monthly Costs & Rent")
-    initial_rent = st.number_input("Monthly Rent for similar property", value=22_000, step=1000)
-    annual_maint_pct = st.slider("Annual Maintenance/Insurance (%)", 0.5, 2.0, 1.0) / 100
+    st.header("2. Monthly Costs")
+    initial_rent = st.number_input("Monthly Rent (Current)", value=22_000, step=1000)
+    annual_maint_pct = st.slider("Annual Maint/Insurance (%)", 0.5, 2.0, 1.0) / 100
     
-    st.header("3. Financial Assumptions")
-    inflation = st.slider("Expected Annual Inflation (%)", 3.0, 7.0, 4.5) / 100
-    appreciation = st.sidebar.slider("Annual Home Appreciation (%)", 2.0, 10.0, 6.0) / 100
-    rent_increase = st.sidebar.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
-    inv_return = st.slider("Investment Return (e.g. S&P 500/CETES) (%)", 5.0, 15.0, 10.0) / 100
-    marginal_tax_rate = st.slider("Your Tax Rate (ISR Bracket) (%)", 20, 35, 30) / 100
-
-    st.sidebar.header("4. Tax Regime")
-    is_resico = st.sidebar.checkbox("Are you in RESICO?", value=False)
-    if is_resico:
-        st.sidebar.caption("⚠️ RESICO cannot deduct mortgage interest. Tax refund will be 0.")
+    st.header("3. Financial assumptions")
+    inflation = st.slider("General Inflation (CPI) (%)", 2.0, 7.0, 4.5) / 100
+    appreciation = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
+    rent_increase = st.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
+    inv_return = st.slider("Investment Return (Portfolio) (%)", 5.0, 15.0, 10.0) / 100
+    
+    st.header("4. Taxes & Regime")
+    is_resico = st.checkbox("Are you in RESICO?", value=False)
+    marginal_tax_rate = st.slider("ISR Bracket (%)", 20, 35, 30) / 100 if not is_resico else 0.02
+    portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
 
 # --- CALCULATIONS ---
-# Initial Cash Outlay
 down_payment_val = prop_price * (down_payment_pct / 100)
 closing_costs_val = prop_price * (closing_costs_pct / 100)
-initial_capital = down_payment_val + closing_costs_val
+initial_capital = down_payment_val + closing_costs_val # What renter starts with
 
-# Mortgage Math (Fixed Rate Monthly)
 loan_amount = prop_price - down_payment_val
 monthly_rate = mortgage_rate / 12
 n_payments = loan_term_years * 12
 monthly_mortgage = loan_amount * (monthly_rate * (1 + monthly_rate)**n_payments) / ((1 + monthly_rate)**n_payments - 1)
 
-# Initialize Data Arrays for 50 Years (600 months)
+# Arrays
 months = 600
-years = 50
-time_axis = np.arange(months + 1)
-
-# Buyer Data
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
 buyer_investments = np.zeros(months + 1)
+renter_investments = np.zeros(months + 1)
+
 house_value[0] = prop_price
 remaining_loan[0] = loan_amount
-
-# Renter Data
-renter_investments = np.zeros(months + 1)
-renter_investments[0] = initial_capital # Starts with what buyer spent on down+closing
-
-# --- THE SIMULATION ENGINE ---
+renter_investments[0] = initial_capital
 current_rent = initial_rent
 
+# --- SIMULATION ---
 for m in range(1, months + 1):
-    # 1. Update House Value and Rent (Annual adjustments)
     if m % 12 == 0:
         house_value[m] = house_value[m-1] * (1 + appreciation)
-        current_rent *= (1 + rent_increase) 
+        current_rent *= (1 + rent_increase)
     else:
         house_value[m] = house_value[m-1]
-    
-    # 2. Buyer Calculations
+
+    # Buyer Logic
     if m <= n_payments:
-        interest_payment = remaining_loan[m-1] * monthly_rate
-        principal_payment = monthly_mortgage - interest_payment
-        remaining_loan[m] = max(0, remaining_loan[m-1] - principal_payment)
+        interest_p = remaining_loan[m-1] * monthly_rate
+        principal_p = monthly_mortgage - interest_p
+        remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p)
         
-        # SAT Tax Refund Logic
         tax_refund = 0
         if not is_resico and m % 12 == 4:
-            # Only calculate if not in RESICO
-            real_interest = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            deductible_amount = min(real_interest, 214000) 
-            tax_refund = deductible_amount * marginal_tax_rate
+            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+            tax_refund = min(real_int, 214000) * marginal_tax_rate
         
-        buyer_monthly_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
+        buyer_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + tax_refund
     else:
-        # AFTER MORTGAGE: The Pivot
         remaining_loan[m] = 0
-        buyer_monthly_outflow = (house_value[m] * annual_maint_pct / 12)
-        
-        # The Pivot: Redirecting former mortgage payment to wealth building
+        buyer_outflow = (house_value[m] * annual_maint_pct / 12)
+        # THE PIVOT
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + monthly_mortgage
 
-    # 3. Renter Simulation (The "Matching" Principle)
-    # This is where we ensure the Renter matches the Buyer's spending.
-    # If rent is low, they save the extra. If rent is high, they withdraw from savings.
-    savings_potential = buyer_monthly_outflow - current_rent
+    # Renter Logic
+    savings_potential = buyer_outflow - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
 
-# Prepare DataFrame for Plotly
+# --- POST-PROCESSING ---
 df = pd.DataFrame({
-    'Year': time_axis / 12,
-    'Buyer Net Worth': (house_value - remaining_loan) + buyer_investments,
-    'Renter Net Worth': renter_investments
+    'Year': np.arange(months + 1) / 12,
+    'Buyer_NW': (house_value - remaining_loan) + buyer_investments,
+    'Renter_NW': renter_investments
 })
 
-# --- VISUALIZATION ---
-st.header("Net Worth Comparison: 50 Year Horizon")
+# --- LIQUIDATION CALCULATIONS ---
+final_year = 50
+idx = months
+# Renter Tax
+renter_gains = renter_investments[idx] - initial_capital
+renter_tax = max(0, renter_gains * portfolio_tax_rate)
+net_renter_liquid = renter_investments[idx] - renter_tax
 
+# Buyer Tax
+house_profit = house_value[idx] - prop_price
+# Primary Residence Exemption (approx 700k UDIS ~ 5.7M MXN)
+exempt_profit = 5_700_000
+taxable_house_profit = max(0, house_profit - exempt_profit)
+house_tax = taxable_house_profit * 0.20 # Estimated 
+net_buyer_liquid = (house_value[idx] - house_tax - (house_value[idx] * 0.04)) + (buyer_investments[idx] * 0.9)
+
+# --- VISUALS ---
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df['Year'], y=df['Buyer Net Worth'], name='Buyer (Equity + Investments)', line=dict(color='#00CC96', width=3)))
-fig.add_trace(go.Scatter(x=df['Year'], y=df['Renter Net Worth'], name='Renter (Investment Portfolio)', line=dict(color='#636EFA', width=3)))
-
-fig.update_layout(
-    hovermode="x unified",
-    yaxis_title="Total Net Worth (MXN)",
-    xaxis_title="Years",
-    template="plotly_white",
-    height=600
-)
+fig.add_trace(go.Scatter(x=df['Year'], y=df['Buyer_NW'], name='Buyer Total NW', line=dict(color='#00CC96')))
+fig.add_trace(go.Scatter(x=df['Year'], y=df['Renter_NW'], name='Renter Total NW', line=dict(color='#636EFA')))
 st.plotly_chart(fig, use_container_width=True)
 
-# --- CONCLUSION BOX ---
-y50_buyer = df['Buyer Net Worth'].iloc[-1]
-y50_renter = df['Renter Net Worth'].iloc[-1]
-winner = "Buyer" if y50_buyer > y50_renter else "Renter"
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Buyer Year 50", f"${y50_buyer:,.0f}")
-col2.metric("Renter Year 50", f"${y50_renter:,.0f}")
-col3.info(f"The long-term winner is the **{winner}**.")
-
-# --- ADVANCED METRICS ---
+# --- FINAL VERDICT ---
 st.divider()
-st.header("The Verdict: Deep Dive")
-
-# 1. Breakeven Year Calculation
-cross_over_year = "Never"
-for i in range(1, len(df)):
-    if df['Buyer Net Worth'].iloc[i] > df['Renter Net Worth'].iloc[i]:
-        cross_over_year = f"Year {df['Year'].iloc[i]:.1f}"
-        break
-
-# 2. Total "Money Lost" Calculation
-total_rent_paid = initial_rent * 12 * ((1 + inflation)**years - 1) / inflation
-# Interest is harder; we sum it during the mortgage period
-total_interest_paid = 0
-temp_loan = loan_amount
-for _ in range(n_payments):
-    interest = temp_loan * monthly_rate
-    total_interest_paid += interest
-    temp_loan -= (monthly_mortgage - interest)
-
-# 3. Displaying the Conclusion Cards
-c1, c2, c3 = st.columns(3)
-
+c1, c2 = st.columns(2)
 with c1:
-    st.subheader("⏳ Breakeven")
-    st.metric("Buying wins at:", cross_over_year)
-    st.caption("If you plan to move before this year, Renting is mathematically superior.")
+    st.subheader("💰 Net Liquid Wealth (Year 50)")
+    st.write("This is what you keep **after taxes and selling fees.**")
+    st.metric("Buyer Liquid", f"${net_buyer_liquid:,.0f}")
+    st.metric("Renter Liquid", f"${net_renter_liquid:,.0f}")
 
 with c2:
-    st.subheader("💸 'Money Lost'")
-    st.write(f"**Total Rent Paid:** ${total_rent_paid:,.0f}")
-    st.write(f"**Total Interest Paid:** ${total_interest_paid:,.0f}")
-    st.caption("Both options involve 'losing' money; the question is which one loses less.")
+    st.subheader("💡 The 'Aha' Moment")
+    total_int = (monthly_mortgage * n_payments) - loan_amount
+    total_rent = initial_rent * 12 * ((1 + rent_increase)**50 - 1) / rent_increase
+    st.write(f"Total Rent Paid in 50 years: **${total_rent:,.0f}**")
+    st.write(f"Total Interest Paid to Bank: **${total_int:,.0f}**")
 
-with c3:
-    st.subheader("📈 Real Growth")
-    roi_gap = (inv_return - appreciation) * 100
-    st.write(f"**Yield Gap:** {roi_gap:.1f}%")
-    if roi_gap > 4:
-        st.warning("The 'Opportunity Cost' of your down payment is very high. Your investments need to work hard to beat the house.")
-    else:
-        st.success("House appreciation is keeping pace with the market. Buying looks solid.")
-
-# 4. Final Recommendation Text
-st.markdown("---")
-if cross_over_year == "Never":
-    st.error("### 🚩 Verdict: Rent & Invest")
-    st.write("Under these specific parameters (likely high interest rates or low rent), the buyer never catches up to the renter's compounded portfolio.")
-else:
-    st.success(f"### ✅ Verdict: Buy (if staying {cross_over_year}+)")
-    st.write(f"Buying is a wealth-building tool for you, but only in the long run. Between now and {cross_over_year}, the renter will actually have a higher net worth.")
-
-st.markdown(f"""
-### Key Insights for Mexico
-* **The SAT Advantage:** Your mortgage interest deduction (Real Interest) acts as a yearly 'bonus' reinvested into your net worth.
-* **The Tipping Point:** Notice the slope change for the Buyer at Year {loan_term_years}. This is when you stop paying the bank and start paying yourself.
-* **Liquidity:** The Renter's wealth is 100% liquid (cash/stocks). The Buyer's wealth is heavily tied to the physical house until Year 50.
-""")
-
-# Create a summary table every 5 years
-summary_data = df[df['Year'] % 5 == 0].copy()
-summary_data['Buyer Net Worth'] = summary_data['Buyer Net Worth'].map('${:,.0f}'.format)
-summary_data['Renter Net Worth'] = summary_data['Renter Net Worth'].map('${:,.0f}'.format)
-
-st.subheader("📋 5-Year Snapshot")
-st.table(summary_data[['Year', 'Buyer Net Worth', 'Renter Net Worth']])
+st.info(f"Summary: In Year 50, the **{'Buyer' if net_buyer_liquid > net_renter_liquid else 'Renter'}** wins the game.")
