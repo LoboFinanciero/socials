@@ -223,9 +223,27 @@ with c2:
     st.metric("Wealth Breakeven", val)
     st.caption("The minimum time you must keep the house to be richer than the renter.")
 
+# --- SNAPSHOT: YEAR 10 REALITY ---
+idx_10 = 120 # Month 120
+
+# Buyer Exit Wealth (Year 10)
+# Net sale after 6% fees and ISR exemption check
+net_sale_10 = house_value[idx_10] * 0.94
+profit_10 = max(0, net_sale_10 - prop_price)
+taxable_10 = max(0, profit_10 - exencion_isr)
+isr_10 = taxable_10 * 0.20
+buyer_exit_10 = (net_sale_10 - remaining_loan[idx_10] - isr_10) + (buyer_investments[idx_10] * 0.9)
+
+# Renter Exit Wealth (Year 10)
+renter_exit_10 = renter_liquid_nw[idx_10]
+
 with c3:
-    st.metric("Status at Year 10", winner_10)
-    st.caption(f"The {winner_10} is ahead by ${diff_10:,.0f} in liquid cash at the 10-year mark.")
+    # We show the difference to make it punchy
+    diff_10 = buyer_exit_10 - renter_exit_10
+    winner_text = "Buyer" if diff_10 > 0 else "Renter"
+    
+    st.metric(f"10-Year Exit Wealth", f"${max(buyer_exit_10, renter_exit_10):,.0f}")
+    st.caption(f"The **{winner_text}** leads by **${abs(diff_10):,.0f}** if you liquidating everything in Year 10.")
 
 # Simple Insight
 if wealth_breakeven_year and wealth_breakeven_year > 10:
