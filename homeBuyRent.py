@@ -120,12 +120,10 @@ fig_nw.update_layout(title="Net Wealth If You Sold Everything Today", template="
 st.plotly_chart(fig_nw, use_container_width=True)
 
 fig_sunk = go.Figure()
-fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Owner: Interest+Maint+Taxes", line=dict(color='#FF4B4B')))
+fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Owner: Interest+Maint+Taxes", line=dict(color='#00CC96')))
 fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Renter: Pure Rent", line=dict(color='#636EFA')))
 fig_sunk.update_layout(title="Monthly 'Lost' Money (Sunk Costs)", template="plotly_dark")
 st.plotly_chart(fig_sunk, use_container_width=True)
-
-# --- ADD THIS AFTER THE OTHER CHARTS ---
 
 # 1. Calculate Total Monthly Outflow Arrays
 buyer_outflow_monthly = np.zeros(months + 1)
