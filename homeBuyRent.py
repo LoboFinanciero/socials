@@ -223,16 +223,35 @@ with col2:
     st.caption("The time you must hold the property to beat the stock market.")
 
 # --- YEAR 10 EXIT COMPARISON ---
-st.subheader(f"💰 Cash-in-Hand if you Sell in Year 10")
-st.write("If you decided to move and liquidate everything at the 10-year mark, this is what would be in your bank account:")
+# --- ROI & PERFORMANCE ---
+st.subheader("📈 Performance Review (Year 10)")
 
+# Calculating a simple Annualized ROI for the Buyer at Year 10
+# Total Profit / Initial Investment, annualized
+total_invested_buyer = initial_capital + (monthly_mortgage * 120)
+buyer_profit_10 = buyer_cash_10 - total_invested_buyer
+# Compounded Annual Growth Rate (CAGR) proxy
+buyer_roi_annual = ((buyer_cash_10 / initial_capital) ** (1/10)) - 1 if buyer_cash_10 > 0 else 0
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}")
+    st.caption(f"Includes home equity + investments minus all 2026 exit taxes.")
+
+with col2:
+    st.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}")
+    st.caption(f"Includes total portfolio minus capital gains tax.")
+
+st.write("---")
+# The ROI "Showdown"
 c1, c2 = st.columns(2)
-c1.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}", 
-          delta=f"${(buyer_cash_10 - renter_cash_10):,.0f}" if buyer_cash_10 > renter_cash_10 else None)
-c2.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}",
-          delta=f"${(renter_cash_10 - buyer_cash_10):,.0f}" if renter_cash_10 > buyer_cash_10 else None)
+c1.write(f"🏠 **Buyer's Effective Annual Return:** {buyer_roi_annual:.2%}")
+c2.write(f"📊 **Renter's Portfolio Return:** {inv_return:.2%}")
 
-if wealth_breakeven_year and wealth_breakeven_year > 10:
-    st.warning(f"⚠️ **Analysis:** In this scenario, Renting is still winning at Year 10. You need to hold for at least {wealth_breakeven_year:.1f} years to make buying the superior financial move.")
+# Helping the user interpret the gap
+gap = abs(buyer_roi_annual - inv_return)
+if buyer_roi_annual > inv_return:
+    st.info(f"The House is outperforming the stock market by **{gap:.2%}** per year.")
 else:
-    st.success(f"✅ **Analysis:** By Year 10, the property has already outperformed the renter's portfolio.")
+    st.info(f"The Stock Market is outperforming the house by **{gap:.2%}** per year.")
