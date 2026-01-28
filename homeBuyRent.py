@@ -164,7 +164,7 @@ fig_outflow.add_trace(go.Scatter(
     x=years_arr, 
     y=renter_outflow_monthly, 
     name="Renter: Monthly Rent", 
-    line=dict(color='#636EFA', width=3, width=3)
+    line=dict(color='#636EFA', width=3)
 ))
 
 fig_outflow.update_layout(
