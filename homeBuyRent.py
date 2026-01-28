@@ -124,6 +124,10 @@ for m in range(months + 1):
     # Final Liquid NW
     buyer_liquid_nw[m] = (net_sale_price - remaining_loan[m] - house_isr) + buyer_inv_liquid
 
+# Pull the final year results from the arrays for the metrics below
+net_buyer_liquid = buyer_liquid_nw[-1]
+net_renter_liquid = renter_liquid_nw[-1]
+
 # --- UPDATED VISUALS ---
 df_liquid = pd.DataFrame({
     'Year': np.arange(months + 1) / 12,
@@ -146,7 +150,7 @@ st.divider()
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("💰 Net Liquid Wealth (Year 50)")
-    st.write("This is what you keep **after taxes and selling fees.**")
+    st.write("What you keep **after taxes and selling fees.**")
     st.metric("Buyer Liquid", f"${net_buyer_liquid:,.0f}")
     st.metric("Renter Liquid", f"${net_renter_liquid:,.0f}")
 
