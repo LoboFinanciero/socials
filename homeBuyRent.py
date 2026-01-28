@@ -27,6 +27,7 @@ with st.sidebar:
     inv_return = st.slider("Investment Return (Portfolio) (%)", 5.0, 15.0, 10.0) / 100
     
     st.header("4. Taxes & Regime")
+    annual_salary = st.sidebar.number_input("Annual Gross Salary (MXN)", value=800_000, step=50_000)
     is_resico = st.checkbox("Are you in RESICO?", value=False)
     marginal_tax_rate = st.slider("ISR Bracket (%)", 20, 35, 30) / 100 if not is_resico else 0.02
     portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
@@ -68,9 +69,16 @@ for m in range(1, months + 1):
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p)
         
         tax_refund = 0
-        if not is_resico and m % 12 == 4:
-            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            tax_refund = min(real_int, 214000) * marginal_tax_rate
+        if not is_resico and m % 12 == 4:
+            # Official 2026 UMA: $117.31 daily / $42,794.64 annual
+            uma_anual_2026 = 42794.64
+            limite_5_umas = uma_anual_2026 * 5 # Approx $213,973
+            limite_15_pct = annual_salary * 0.15
+            cap_deduccion = min(limite_5_umas, limite_15_pct)
+
+            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+            # The refund is limited by the lesser of 15% salary or 5 UMAs
+            tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
         
         buyer_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
         # The refund goes directly to reduce the debt
@@ -87,33 +95,50 @@ for m in range(1, months + 1):
     savings_potential = buyer_outflow - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
 
-# --- POST-PROCESSING ---
-df = pd.DataFrame({
+# --- UPDATED LIQUIDATION LOGIC ---
+buyer_liquid_nw = np.zeros(months + 1)
+renter_liquid_nw = np.zeros(months + 1)
+
+# Jan 2026 Constants
+udi_val = 8.6759
+exencion_isr = 700_000 * udi_val
+
+for m in range(months + 1):
+    # 1. Renter Liquidation (Portfolio tax on gains)
+    gains_renter = max(0, renter_investments[m] - initial_capital)
+    renter_liquid_nw[m] = renter_investments[m] - (gains_renter * portfolio_tax_rate)
+    
+    # 2. Buyer Liquidation
+    # House Sale: Value - Selling Costs (Notary/Commission ~6%)
+    net_sale_price = house_value[m] * 0.94 
+    profit = max(0, net_sale_price - prop_price)
+    
+    # ISR on House: Only on profit above 700k UDIs
+    taxable_profit = max(0, profit - exencion_isr)
+    # Using a 20% effective rate for taxable surplus as a safe proxy
+    house_isr = taxable_profit * 0.20 
+    
+    # Buyer Investments (Taxed at withdrawal)
+    buyer_inv_liquid = buyer_investments[m] * 0.90 # Simple 10% tax proxy
+    
+    # Final Liquid NW
+    buyer_liquid_nw[m] = (net_sale_price - remaining_loan[m] - house_isr) + buyer_inv_liquid
+
+# --- UPDATED VISUALS ---
+df_liquid = pd.DataFrame({
     'Year': np.arange(months + 1) / 12,
-    'Buyer_NW': (house_value - remaining_loan) + buyer_investments,
-    'Renter_NW': renter_investments
+    'Buyer_Liquid': buyer_liquid_nw,
+    'Renter_Liquid': renter_liquid_nw
 })
 
-# --- LIQUIDATION CALCULATIONS ---
-final_year = 50
-idx = months
-# Renter Tax
-renter_gains = renter_investments[idx] - initial_capital
-renter_tax = max(0, renter_gains * portfolio_tax_rate)
-net_renter_liquid = renter_investments[idx] - renter_tax
-
-# Buyer Tax
-house_profit = house_value[idx] - prop_price
-# Primary Residence Exemption (approx 700k UDIS ~ 5.7M MXN)
-exempt_profit = 5_700_000
-taxable_house_profit = max(0, house_profit - exempt_profit)
-house_tax = taxable_house_profit * 0.20 # Estimated 
-net_buyer_liquid = (house_value[idx] - house_tax - (house_value[idx] * 0.04)) + (buyer_investments[idx] * 0.9)
-
-# --- VISUALS ---
 fig = go.Figure()
-fig.add_trace(go.Scatter(x=df['Year'], y=df['Buyer_NW'], name='Buyer Total NW', line=dict(color='#00CC96')))
-fig.add_trace(go.Scatter(x=df['Year'], y=df['Renter_NW'], name='Renter Total NW', line=dict(color='#636EFA')))
+fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Buyer_Liquid'], 
+                         name='Buyer (Cash in Hand)', line=dict(color='#00CC96', width=3)))
+fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Renter_Liquid'], 
+                         name='Renter (Cash in Hand)', line=dict(color='#636EFA', width=3)))
+
+fig.update_layout(title="Net Wealth If You Cashed Out Today (Post-Tax & Fees)",
+                  yaxis_title="MXN ($)", xaxis_title="Years")
 st.plotly_chart(fig, use_container_width=True)
 
 # --- FINAL VERDICT ---
