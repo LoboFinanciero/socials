@@ -141,9 +141,9 @@ df_liquid = pd.DataFrame({
 
 fig = go.Figure()
 fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Buyer_Liquid'], 
-                         name='Buyer (Cash in Hand)', line=dict(color='#00CC96', width=3)))
+                         name='Buyer', line=dict(color='#00CC96', width=3)))
 fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Renter_Liquid'], 
-                         name='Renter (Cash in Hand)', line=dict(color='#636EFA', width=3)))
+                         name='Renter', line=dict(color='#636EFA', width=3)))
 
 fig.update_layout(title="Net Wealth If You Cashed Out Today (Post-Tax & Fees)",
                   yaxis_title="MXN ($)", xaxis_title="Years")
@@ -181,8 +181,10 @@ for m in range(1, months + 1):
 
 # Plotly Sunk Cost Chart
 fig_sunk = go.Figure()
-fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=renter_sunk, name='Sunk Cost: Rent', line=dict(color='#636EFA', dash='dash')))
-fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=buyer_sunk, name='Sunk Cost: Owning', line=dict(color='#EF553B')))
+fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=buyer_sunk, 
+                             name='Owner (Sunk)', line=dict(color='#00CC96', width=3)))
+fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=renter_sunk, 
+                             name='Renter (Sunk)', line=dict(color='#636EFA', dash='dash')))
 fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, Maint vs Rent)", 
                       yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
 st.plotly_chart(fig_sunk, use_container_width=True)
@@ -191,67 +193,39 @@ st.plotly_chart(fig_sunk, use_container_width=True)
 st.divider()
 st.header("🎯 Key Decision Milestones")
 
-# 1. Calculation: Sunk Cost Breakeven (Monthly "Loss" Parity)
+# 1. Calculation: Monthly Sunk Cost Breakeven
 cash_breakeven_year = None
 for i in range(12, len(buyer_sunk)):
     if buyer_sunk[i] < renter_sunk[i]:
         cash_breakeven_year = i / 12
         break
 
-# 2. Calculation: Wealth Breakeven (Total Liquid NW Parity)
+# 2. Calculation: Wealth Breakeven (Liquid Wealth Parity)
 wealth_breakeven_year = None
 for i in range(24, len(buyer_liquid_nw)):
     if buyer_liquid_nw[i] > renter_liquid_nw[i]:
         wealth_breakeven_year = i / 12
         break
 
-# 3. Snapshot: Year 10 Exit Reality
+c1, c2 = st.columns(2)
+with c1:
+    val_cash = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
+    st.metric("Monthly 'Loss' Parity", val_cash)
+    st.caption("When your monthly unrecoverable costs (interest/maint) finally drop below rent.")
+
+with c2:
+    val_wealth = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
+    st.metric("Wealth Breakeven", val_wealth)
+    st.caption("Minimum time to own the property to be richer than the renter.")
+
+# --- YEAR 10 EXIT COMPARISON ---
+st.subheader(f"💰 Cash-in-Hand if you Sell in Year 10")
+st.write("Liquid wealth available after all taxes and transaction fees:")
+
 idx_10 = 120 
-# Note: For the Buyer, this is Sale Price - Debt - 6% Commish - ISR - Closing Costs
 buyer_cash_10 = buyer_liquid_nw[idx_10]
 renter_cash_10 = renter_liquid_nw[idx_10]
 
-col1, col2 = st.columns(2)
-with col1:
-    val_cash = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
-    st.metric("Monthly 'Loss' Parity", val_cash)
-    st.caption("When your monthly unrecoverable costs finally drop below rent.")
-
-with col2:
-    val_wealth = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
-    st.metric("Wealth Breakeven", val_wealth)
-    st.caption("The time you must hold the property to beat the stock market.")
-
-# --- YEAR 10 EXIT COMPARISON ---
-# --- ROI & PERFORMANCE ---
-st.subheader("📈 Performance Review (Year 10)")
-
-# Calculating a simple Annualized ROI for the Buyer at Year 10
-# Total Profit / Initial Investment, annualized
-total_invested_buyer = initial_capital + (monthly_mortgage * 120)
-buyer_profit_10 = buyer_cash_10 - total_invested_buyer
-# Compounded Annual Growth Rate (CAGR) proxy
-buyer_roi_annual = ((buyer_cash_10 / initial_capital) ** (1/10)) - 1 if buyer_cash_10 > 0 else 0
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}")
-    st.caption(f"Includes home equity + investments minus all 2026 exit taxes.")
-
-with col2:
-    st.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}")
-    st.caption(f"Includes total portfolio minus capital gains tax.")
-
-st.write("---")
-# The ROI "Showdown"
 c1, c2 = st.columns(2)
-c1.write(f"🏠 **Buyer's Effective Annual Return:** {buyer_roi_annual:.2%}")
-c2.write(f"📊 **Renter's Portfolio Return:** {inv_return:.2%}")
-
-# Helping the user interpret the gap
-gap = abs(buyer_roi_annual - inv_return)
-if buyer_roi_annual > inv_return:
-    st.info(f"The House is outperforming the stock market by **{gap:.2%}** per year.")
-else:
-    st.info(f"The Stock Market is outperforming the house by **{gap:.2%}** per year.")
+c1.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}")
+c2.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}")
