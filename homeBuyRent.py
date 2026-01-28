@@ -120,3 +120,57 @@ fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Owner: Interest+M
 fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Renter: Pure Rent", line=dict(color='#636EFA')))
 fig_sunk.update_layout(title="Monthly 'Lost' Money (Sunk Costs)", template="plotly_dark")
 st.plotly_chart(fig_sunk, use_container_width=True)
+
+# --- ADD THIS AFTER THE OTHER CHARTS ---
+
+# 1. Calculate Total Monthly Outflow Arrays
+buyer_outflow_monthly = np.zeros(months + 1)
+for m in range(1, months + 1):
+    maint = (house_value[m] * annual_maint_pct) / 12
+    predial = (house_value[m] * predial_rate)
+    
+    # Monthly Refund logic (distributing the annual refund for the chart)
+    # Note: In real life you get it once a year, but for a 'monthly spend' 
+    # comparison, we average it out.
+    temp_refund = 0
+    if not is_resico and m <= n_payments:
+        # We use the previous month's balance for the real interest calc
+        real_int_annual = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+        temp_refund = (min(real_int_annual, cap_deduccion) * marginal_tax_rate) / 12
+
+    if m <= n_payments:
+        buyer_outflow_monthly[m] = monthly_mortgage + maint + predial - temp_refund
+    else:
+        # Post-mortgage life!
+        buyer_outflow_monthly[m] = maint + predial
+
+# 2. Renter Outflow is just the 'current_rent' array we already have
+# (Need to make sure we use the version that captures the yearly steps)
+renter_outflow_monthly = monthly_rents # Created in the previous block
+
+# 3. PLOT: Total Monthly Outflow
+fig_outflow = go.Figure()
+
+fig_outflow.add_trace(go.Scatter(
+    x=years_arr, 
+    y=buyer_outflow_monthly, 
+    name="Buyer: Total Monthly Spend", 
+    line=dict(color='#00CC96', width=3)
+))
+
+fig_outflow.add_trace(go.Scatter(
+    x=years_arr, 
+    y=renter_outflow_monthly, 
+    name="Renter: Monthly Rent", 
+    line=dict(color='#636EFA', width=3, dash='dash')
+))
+
+fig_outflow.update_layout(
+    title="Total Monthly Out-of-Pocket Cost (Cash Flow)",
+    yaxis_title="MXN ($)",
+    xaxis_title="Years",
+    template="plotly_dark",
+    hovermode="x unified"
+)
+
+st.plotly_chart(fig_outflow, use_container_width=True)
