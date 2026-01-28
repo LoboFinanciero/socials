@@ -41,12 +41,13 @@ loan_amount = prop_price - down_payment_val
 m_rate = mortgage_rate / 12
 monthly_mortgage = loan_amount * (m_rate * (1 + m_rate)**n_payments) / ((1 + m_rate)**n_payments - 1)
 
-# --- THE SIMULATION LOOP ---
+# --- SIMULATION ARRAYS ---
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
 renter_investments = np.zeros(months + 1)
 buyer_sunk = np.zeros(months + 1)
 renter_sunk = np.zeros(months + 1)
+monthly_rents = np.zeros(months + 1)
 
 house_value[0] = prop_price
 remaining_loan[0] = loan_amount
@@ -57,6 +58,7 @@ uma_anual_2026 = 42794.64
 cap_deduccion = min(uma_anual_2026 * 5, annual_salary * 0.15)
 predial_rate = 0.002 / 12
 
+# --- SIMULATION LOOP ---
 for m in range(1, months + 1):
     # 1. Yearly "Step" Logic
     # Every 12 months, the value and rent "jump"
@@ -65,6 +67,8 @@ for m in range(1, months + 1):
         current_rent *= (1 + rent_increase_annual)
     else:
         house_value[m] = house_value[m-1]
+
+    monthly_rents[m] = current_rent
 
     # 2. Buyer Logic (Mortgage & Sunk Costs)
     maint_costs = (house_value[m] * annual_maint_pct) / 12
@@ -174,3 +178,48 @@ fig_outflow.update_layout(
 )
 
 st.plotly_chart(fig_outflow, use_container_width=True)
+
+st.divider()
+st.header("🎯 The Verdict: When does Buying Win?")
+
+# 1. Calculation: Monthly Cash Flow Breakeven 
+# (When is Mortgage + Maint > Rent?)
+cash_breakeven_year = None
+for i in range(1, len(buyer_outflow_monthly)):
+    if renter_outflow_monthly[i] > buyer_outflow_monthly[i]:
+        cash_breakeven_year = i / 12
+        break
+
+# 2. Calculation: Sunk Cost Breakeven 
+# (When is Rent > Interest + Maint?)
+sunk_breakeven_year = None
+for i in range(1, len(buyer_sunk)):
+    if renter_sunk[i] > buyer_sunk[i]:
+        sunk_breakeven_year = i / 12
+        break
+
+# 3. Calculation: Wealth Breakeven 
+# (When is House Equity > Renter Portfolio?)
+wealth_breakeven_year = None
+for i in range(12, len(buyer_liquid_nw)): # Start checking after 1 year
+    if buyer_liquid_nw[i] > renter_liquid_nw[i]:
+        wealth_breakeven_year = i / 12
+        break
+
+# Display Metrics
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    val_cash = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
+    st.metric("Monthly Budget Parity", val_cash)
+    st.caption("When your monthly rent finally becomes higher than the mortgage payment.")
+
+with c2:
+    val_sunk = f"{sunk_breakeven_year:.1f} Years" if sunk_breakeven_year else "Never"
+    st.metric("The 'Waste' Breakeven", val_sunk)
+    st.caption("When rent (100% loss) exceeds the interest and maintenance you 'lose' as an owner.")
+
+with c3:
+    val_wealth = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
+    st.metric("Total Wealth Parity", val_wealth)
+    st.caption("The moment you are officially richer as an owner than as a renter.")
