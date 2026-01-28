@@ -9,27 +9,31 @@ st.title("🏡 The 50-Year Wealth Battle: Buying vs. Renting in Mexico")
 
 # --- SIDEBAR: INPUTS ---
 with st.sidebar:
-    st.header("1. Property & Mortgage")
+    st.header("🏠 1. Buyer Profile")
     prop_price = st.number_input("Property Price (MXN)", value=5_000_000, step=100_000)
     down_payment_pct = st.slider("Down Payment (%)", 10, 50, 20)
     closing_costs_pct = st.slider("Closing Costs (ISAI, Notary) (%)", 4, 9, 6)
     mortgage_rate = st.slider("Mortgage Interest Rate (%)", 8.0, 14.0, 11.0) / 100
     loan_term_years = st.selectbox("Loan Term (Years)", [15, 20], index=1)
-    
-    st.header("2. Monthly Costs")
-    initial_rent = st.number_input("Monthly Rent (Current)", value=22_000, step=1000)
+    appreciation = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
     annual_maint_pct = st.slider("Annual Maint/Insurance (%)", 0.5, 2.0, 1.0) / 100
     
-    st.header("3. Financial assumptions")
-    inflation = st.slider("General Inflation (CPI) (%)", 2.0, 7.0, 4.5) / 100
-    appreciation = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
+    st.header("📉 2. Renter Profile")
+    initial_rent = st.number_input("Monthly Rent (Current)", value=22_000, step=1000)
     rent_increase = st.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
     inv_return = st.slider("Investment Return (Portfolio) (%)", 5.0, 15.0, 10.0) / 100
     
-    st.header("4. Taxes & Regime")
-    annual_salary = st.sidebar.number_input("Annual Gross Salary (MXN)", value=800_000, step=50_000)
+    st.header("⚖️ 3. Financials & Taxes")
+    inflation = st.slider("General Inflation (CPI) (%)", 2.0, 7.0, 4.5) / 100
+    annual_salary = st.number_input("Annual Gross Salary (MXN)", value=800_000, step=50_000)
     is_resico = st.checkbox("Are you in RESICO?", value=False)
-    marginal_tax_rate = st.slider("ISR Bracket (%)", 20, 35, 30) / 100 if not is_resico else 0.02
+    
+    if not is_resico:
+        marginal_tax_rate = st.slider("Your ISR Bracket (%)", 20, 35, 30) / 100
+    else:
+        # RESICO is a flat rate based on income, 2% is a common average
+        marginal_tax_rate = 0.02
+        
     portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
 
 # --- CALCULATIONS ---
@@ -183,20 +187,28 @@ fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, M
                       yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
 st.plotly_chart(fig_sunk, use_container_width=True)
 
-# --- FINAL VERDICT ---
+# --- FINAL VERDICT & ANALYSIS ---
 st.divider()
-c1, c2 = st.columns(2)
-with c1:
-    st.subheader("💰 Net Liquid Wealth (Year 50)")
-    st.write("What you keep **after taxes and selling fees.**")
-    st.metric("Buyer Liquid", f"${net_buyer_liquid:,.0f}")
-    st.metric("Renter Liquid", f"${net_renter_liquid:,.0f}")
+st.subheader("🏁 The Ultimate Verdict")
 
-with c2:
-    st.subheader("💡 The 'Aha' Moment")
-    total_int = (monthly_mortgage * n_payments) - loan_amount
-    total_rent = initial_rent * 12 * ((1 + rent_increase)**50 - 1) / rent_increase
-    st.write(f"Total Rent Paid in 50 years: **${total_rent:,.0f}**")
-    st.write(f"Total Interest Paid to Bank: **${total_int:,.0f}**")
+# Finding the Sunk Cost Breakeven Year
+# We look for the first year after year 1 where buyer sunk cost is less than renter sunk cost
+breakeven_year = "Never"
+for i in range(12, len(buyer_sunk)): # Start checking after 1 year
+    if buyer_sunk[i] < renter_sunk[i]:
+        breakeven_year = f"{i/12:.1f} Years"
+        break
 
-st.info(f"Summary: In Year 50, the **{'Buyer' if net_buyer_liquid > net_renter_liquid else 'Renter'}** wins the game.")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Final Winner", "Buyer" if net_buyer_liquid > net_renter_liquid else "Renter")
+    st.caption("Based on Net Liquid Wealth at Year 50")
+
+with col2:
+    st.metric("Sunk Cost Breakeven", breakeven_year)
+    st.caption("When owning becomes cheaper than renting monthly")
+
+with col3:
+    total_tax_shield = (tax_refund * loan_term_years) if not is_resico else 0
+    st.metric("Est. Tax Savings", f"${total_tax_shield:,.0f}")
+    st.caption("Total ISR refunds over the life of the loan")
