@@ -75,8 +75,8 @@ for m in range(1, months + 1):
             limite_5_umas = uma_anual_2026 * 5 # Approx $213,973
             limite_15_pct = annual_salary * 0.15
             cap_deduccion = min(limite_5_umas, limite_15_pct)
-
-            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+            
+            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
             # The refund is limited by the lesser of 15% salary or 5 UMAs
             tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
         
