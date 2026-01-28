@@ -78,7 +78,7 @@ for m in range(1, months + 1):
             
             real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
             # The refund is limited by the lesser of 15% salary or 5 UMAs
-            tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
+            tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
         
         buyer_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
         # The refund goes directly to reduce the debt
