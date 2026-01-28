@@ -69,7 +69,7 @@ for m in range(1, months + 1):
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p)
         
         tax_refund = 0
-        if not is_resico and m % 12 == 4:
+        if not is_resico and m % 12 == 4:
             # Official 2026 UMA: $117.31 daily / $42,794.64 annual
             uma_anual_2026 = 42794.64
             limite_5_umas = uma_anual_2026 * 5 # Approx $213,973
