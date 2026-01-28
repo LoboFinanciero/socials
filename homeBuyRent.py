@@ -184,7 +184,7 @@ fig_sunk = go.Figure()
 fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=buyer_sunk, 
                              name='Owner (Sunk)', line=dict(color='#00CC96', width=3)))
 fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=renter_sunk, 
-                             name='Renter (Sunk)', line=dict(color='#636EFA', dash='dash')))
+                             name='Renter (Sunk)', line=dict(color='#636EFA',  width=3)))
 fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, Maint vs Rent)", 
                       yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
 st.plotly_chart(fig_sunk, use_container_width=True)
