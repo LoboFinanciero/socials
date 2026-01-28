@@ -200,53 +200,39 @@ for i in range(12, len(buyer_sunk)):
 
 # 2. Calculation: Wealth Breakeven (Total Liquid NW Parity)
 wealth_breakeven_year = None
-for i in range(24, len(buyer_liquid_nw)): # Check after 2 years to skip initial chaos
+for i in range(24, len(buyer_liquid_nw)):
     if buyer_liquid_nw[i] > renter_liquid_nw[i]:
         wealth_breakeven_year = i / 12
         break
 
-# 3. Snapshot: Year 10 Reality
-# (Since you mentioned Year 10, let's show the actual status then)
-idx_10 = 120
-winner_10 = "Buyer" if buyer_liquid_nw[idx_10] > renter_liquid_nw[idx_10] else "Renter"
-diff_10 = abs(buyer_liquid_nw[idx_10] - renter_liquid_nw[idx_10])
+# 3. Snapshot: Year 10 Exit Reality
+idx_10 = 120 
+# Note: For the Buyer, this is Sale Price - Debt - 6% Commish - ISR - Closing Costs
+buyer_cash_10 = buyer_liquid_nw[idx_10]
+renter_cash_10 = renter_liquid_nw[idx_10]
 
-c1, c2, c3 = st.columns(3)
+col1, col2 = st.columns(2)
+with col1:
+    val_cash = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
+    st.metric("Monthly 'Loss' Parity", val_cash)
+    st.caption("When your monthly unrecoverable costs finally drop below rent.")
 
-with c1:
-    val = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
-    st.metric("Monthly 'Loss' Parity", val)
-    st.caption("When your monthly unrecoverable costs (interest/maint) finally drop below rent.")
+with col2:
+    val_wealth = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
+    st.metric("Wealth Breakeven", val_wealth)
+    st.caption("The time you must hold the property to beat the stock market.")
 
-with c2:
-    val = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
-    st.metric("Wealth Breakeven", val)
-    st.caption("The minimum time you must keep the house to be richer than the renter.")
+# --- YEAR 10 EXIT COMPARISON ---
+st.subheader(f"💰 Cash-in-Hand if you Sell in Year 10")
+st.write("If you decided to move and liquidate everything at the 10-year mark, this is what would be in your bank account:")
 
-# --- SNAPSHOT: YEAR 10 REALITY ---
-idx_10 = 120 # Month 120
+c1, c2 = st.columns(2)
+c1.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}", 
+          delta=f"${(buyer_cash_10 - renter_cash_10):,.0f}" if buyer_cash_10 > renter_cash_10 else None)
+c2.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}",
+          delta=f"${(renter_cash_10 - buyer_cash_10):,.0f}" if renter_cash_10 > buyer_cash_10 else None)
 
-# Buyer Exit Wealth (Year 10)
-# Net sale after 6% fees and ISR exemption check
-net_sale_10 = house_value[idx_10] * 0.94
-profit_10 = max(0, net_sale_10 - prop_price)
-taxable_10 = max(0, profit_10 - exencion_isr)
-isr_10 = taxable_10 * 0.20
-buyer_exit_10 = (net_sale_10 - remaining_loan[idx_10] - isr_10) + (buyer_investments[idx_10] * 0.9)
-
-# Renter Exit Wealth (Year 10)
-renter_exit_10 = renter_liquid_nw[idx_10]
-
-with c3:
-    # We show the difference to make it punchy
-    diff_10 = buyer_exit_10 - renter_exit_10
-    winner_text = "Buyer" if diff_10 > 0 else "Renter"
-    
-    st.metric(f"10-Year Exit Wealth", f"${max(buyer_exit_10, renter_exit_10):,.0f}")
-    st.caption(f"The **{winner_text}** leads by **${abs(diff_10):,.0f}** if you liquidating everything in Year 10.")
-
-# Simple Insight
 if wealth_breakeven_year and wealth_breakeven_year > 10:
-    st.warning(f"⚠️ **Warning:** You won't break even on this purchase until year {wealth_breakeven_year:.1f}. If you plan to sell before then, Renting is mathematically superior.")
+    st.warning(f"⚠️ **Analysis:** In this scenario, Renting is still winning at Year 10. You need to hold for at least {wealth_breakeven_year:.1f} years to make buying the superior financial move.")
 else:
-    st.success(f"✅ **Good Investment:** This property pays for itself (vs renting) relatively quickly.")
+    st.success(f"✅ **Analysis:** By Year 10, the property has already outperformed the renter's portfolio.")
