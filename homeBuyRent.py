@@ -70,20 +70,19 @@ for m in range(1, months + 1):
 
     monthly_rents[m] = current_rent
 
-    # 2. Buyer Logic (Mortgage & Sunk Costs)
-    maint_costs = (house_value[m] * annual_maint_pct) / 12
+   # Buyer Logic
     if m <= n_payments:
-        interest_p = remaining_loan[m-1] * m_rate
+        interest_p = remaining_loan[m-1] * monthly_rate
         principal_p = monthly_mortgage - interest_p
         
-        # Yearly Tax Refund (applied every 12th month)
-        tax_refund = 0
-        if not is_resico and m % 12 == 0:
-            real_int_annual = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            tax_refund = min(real_int_annual, cap_deduccion) * marginal_tax_rate
+        # Calculate tax refund as a standalone value
+        current_tax_refund = 0
+        if not is_resico and m % 12 == 4:
+            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+            current_tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
         
-        remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - tax_refund)
-        buyer_sunk[m] = interest_p + maint_costs + (house_value[m] * predial_rate) - (tax_refund / 12)
+        # APPLY BOTH AT ONCE (This is the fix)
+        remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - current_tax_refund)
         buyer_outflow = monthly_mortgage + maint_costs
     else:
         remaining_loan[m] = 0
