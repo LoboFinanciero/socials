@@ -3,9 +3,14 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+# --- 2026 MEXICO CONSTANTS ---
+UMA_ANUAL_2026 = 42794.64  # $117.31 * 364.8 approx
+UDI_VAL_2026 = 8.6759      # Late Jan 2026 Value
+VALOR_EXENCION_ISR = 700_000 * UDI_VAL_2026 
+
 # --- CONFIGURATION ---
-st.set_page_config(page_title="Mexico Buy vs Rent: 50Y Analysis", layout="wide")
-st.title("🏡 The 50-Year Wealth Battle: Buying vs. Renting in Mexico")
+st.set_page_config(page_title="Mexico Buy vs Rent: 2026", layout="wide")
+st.title("🏡 The Wealth Battle: Buying vs. Renting in Mexico")
 
 # --- SIDEBAR: INPUTS ---
 with st.sidebar:
@@ -27,24 +32,19 @@ with st.sidebar:
     inflation = st.slider("General Inflation (CPI) (%)", 2.0, 7.0, 4.5) / 100
     annual_salary = st.number_input("Annual Gross Salary (MXN)", value=800_000, step=50_000)
     is_resico = st.checkbox("Are you in RESICO?", value=False)
-    
-    if not is_resico:
-        marginal_tax_rate = st.slider("Your ISR Bracket (%)", 20, 35, 30) / 100
-    else:
-        # RESICO is a flat rate based on income, 2% is a common average
-        marginal_tax_rate = 0.02
-        
-    portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
+    marginal_tax_rate = st.slider("ISR Bracket (%)", 20, 35, 30) / 100 if not is_resico else 0.02
+    portfolio_tax_rate = st.slider("Portfolio Tax (%)", 0, 35, 10) / 100
 
 # --- CALCULATIONS ---
 down_payment_val = prop_price * (down_payment_pct / 100)
 closing_costs_val = prop_price * (closing_costs_pct / 100)
-initial_capital = down_payment_val + closing_costs_val # What renter starts with
+initial_capital = down_payment_val + closing_costs_val 
 
 loan_amount = prop_price - down_payment_val
 monthly_rate = mortgage_rate / 12
 n_payments = loan_term_years * 12
 monthly_mortgage = loan_amount * (monthly_rate * (1 + monthly_rate)**n_payments) / ((1 + monthly_rate)**n_payments - 1)
+limite_deduccion = min(UMA_ANUAL_2026 * 5, annual_salary * 0.15)
 
 # Arrays
 months = 600
@@ -52,13 +52,15 @@ house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
 buyer_investments = np.zeros(months + 1)
 renter_investments = np.zeros(months + 1)
+buyer_liquid_nw = np.zeros(months + 1)
+renter_liquid_nw = np.zeros(months + 1)
+buyer_sunk = np.zeros(months + 1)
+renter_sunk = np.zeros(months + 1)
 
-house_value[0] = prop_price
-remaining_loan[0] = loan_amount
-renter_investments[0] = initial_capital
+house_value[0], remaining_loan[0], renter_investments[0] = prop_price, loan_amount, initial_capital
 current_rent = initial_rent
 
-# --- SIMULATION ---
+# --- UNIFIED SIMULATION ---
 for m in range(1, months + 1):
     if m % 12 == 0:
         house_value[m] = house_value[m-1] * (1 + appreciation)
@@ -66,166 +68,60 @@ for m in range(1, months + 1):
     else:
         house_value[m] = house_value[m-1]
 
-    # Buyer Logic
+    # Buyer Sunk Costs & Logic
+    maint_p = (house_value[m] * annual_maint_pct) / 12
+    predial_p = (house_value[m] * 0.002) / 12
+    
     if m <= n_payments:
-        interest_p = remaining_loan[m-1] * monthly_rate
-        principal_p = monthly_mortgage - interest_p
-        remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p)
+        int_p = remaining_loan[m-1] * monthly_rate
+        remaining_loan[m] = max(0, remaining_loan[m-1] - (monthly_mortgage - int_p))
         
-        tax_refund = 0
-        if not is_resico and m % 12 == 4:
-            # Official 2026 UMA: $117.31 daily / $42,794.64 annual
-            uma_anual_2026 = 42794.64
-            limite_5_umas = uma_anual_2026 * 5 # Approx $213,973
-            limite_15_pct = annual_salary * 0.15
-            cap_deduccion = min(limite_5_umas, limite_15_pct)
-            
-            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            # The refund is limited by the lesser of 15% salary or 5 UMAs
-            tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
+        real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+        refund = (min(real_int, limite_deduccion) * marginal_tax_rate) if not is_resico and m % 12 == 4 else 0
         
-        buyer_outflow = monthly_mortgage + (house_value[m] * annual_maint_pct / 12)
-        # The refund goes directly to reduce the debt
-        remaining_loan[m] = max(0, remaining_loan[m-1] - tax_refund)
-        # Buyer investments now only grow with interest (no new money until the loan is over)
+        buyer_sunk[m] = int_p + maint_p + predial_p - (refund/12 if m % 12 == 4 else 0)
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12)
     else:
         remaining_loan[m] = 0
-        buyer_outflow = (house_value[m] * annual_maint_pct / 12)
-        # THE PIVOT
+        buyer_sunk[m] = maint_p + predial_p
         buyer_investments[m] = buyer_investments[m-1] * (1 + inv_return/12) + monthly_mortgage
 
     # Renter Logic
-    savings_potential = buyer_outflow - current_rent
-    renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
+    renter_sunk[m] = current_rent
+    savings = ((monthly_mortgage if m <= n_payments else 0) + maint_p + predial_p) - current_rent
+    renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings
 
-# --- UPDATED LIQUIDATION LOGIC ---
-buyer_liquid_nw = np.zeros(months + 1)
-renter_liquid_nw = np.zeros(months + 1)
-
-# Jan 2026 Constants
-udi_val = 8.6759
-exencion_isr = 700_000 * udi_val
-
-for m in range(months + 1):
-    # 1. Renter Liquidation (Portfolio tax on gains)
-    gains_renter = max(0, renter_investments[m] - initial_capital)
-    renter_liquid_nw[m] = renter_investments[m] - (gains_renter * portfolio_tax_rate)
+    # Fair Liquidation (Net Value after 6%+IVA agent fee and ISR)
+    net_sale = house_value[m] * 0.9304 
+    isr_house = max(0, (net_sale - prop_price) - VALOR_EXENCION_ISR) * 0.20
+    buyer_liquid_nw[m] = (net_sale - remaining_loan[m] - isr_house) + (buyer_investments[m] * 0.9)
     
-    # 2. Buyer Liquidation
-    # House Sale: Value - Selling Costs (Notary/Commission ~6%)
-    net_sale_price = house_value[m] * 0.94 
-    profit = max(0, net_sale_price - prop_price)
-    
-    # ISR on House: Only on profit above 700k UDIs
-    taxable_profit = max(0, profit - exencion_isr)
-    # Using a 20% effective rate for taxable surplus as a safe proxy
-    house_isr = taxable_profit * 0.20 
-    
-    # Buyer Investments (Taxed at withdrawal)
-    buyer_inv_liquid = buyer_investments[m] * 0.90 # Simple 10% tax proxy
-    
-    # Final Liquid NW
-    buyer_liquid_nw[m] = (net_sale_price - remaining_loan[m] - house_isr) + buyer_inv_liquid
+    renter_gains = max(0, renter_investments[m] - initial_capital)
+    renter_liquid_nw[m] = renter_investments[m] - (renter_gains * portfolio_tax_rate)
 
-# Pull the final year results from the arrays for the metrics below
-net_buyer_liquid = buyer_liquid_nw[-1]
-net_renter_liquid = renter_liquid_nw[-1]
+# --- VISUALS ---
+df = pd.DataFrame({'Year': np.arange(months + 1) / 12})
+fig_nw = go.Figure()
+fig_nw.add_trace(go.Scatter(x=df['Year'], y=buyer_liquid_nw, name='Buyer (Green)', line=dict(color='#00CC96', width=3)))
+fig_nw.add_trace(go.Scatter(x=df['Year'], y=renter_liquid_nw, name='Renter (Blue)', line=dict(color='#636EFA', width=3)))
+st.plotly_chart(fig_nw, use_container_width=True)
 
-# --- UPDATED VISUALS ---
-df_liquid = pd.DataFrame({
-    'Year': np.arange(months + 1) / 12,
-    'Buyer_Liquid': buyer_liquid_nw,
-    'Renter_Liquid': renter_liquid_nw
-})
-
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Buyer_Liquid'], 
-                         name='Buyer', line=dict(color='#00CC96', width=3)))
-fig.add_trace(go.Scatter(x=df_liquid['Year'], y=df_liquid['Renter_Liquid'], 
-                         name='Renter', line=dict(color='#636EFA', width=3)))
-
-fig.update_layout(title="Net Wealth If You Cashed Out Today (Post-Tax & Fees)",
-                  yaxis_title="MXN ($)", xaxis_title="Years")
-st.plotly_chart(fig, use_container_width=True)
-
-# --- SUNK COST ANALYSIS ---
-buyer_sunk = np.zeros(months + 1)
-renter_sunk = np.zeros(months + 1)
-
-# Mexico specific variables
-predial_rate = 0.002 # 0.2% is a common average in Mexico
-current_rent_sunk = initial_rent
-
-for m in range(1, months + 1):
-    if m % 12 == 0:
-        current_rent_sunk *= (1 + rent_increase)
-    
-    # Renter Sunk Cost is just the monthly rent
-    renter_sunk[m] = current_rent_sunk
-    
-    # Buyer Sunk Cost (Monthly Interest + Maint + Predial - Monthly Tax Refund)
-    if m <= n_payments:
-        # We divide annual items by 12
-        monthly_maint = (house_value[m] * annual_maint_pct) / 12
-        monthly_predial = (house_value[m] * predial_rate) / 12
-        interest_val = remaining_loan[m-1] * (mortgage_rate / 12)
-        
-        # Monthly tax refund proxy
-        monthly_refund = tax_refund / 12 if m % 12 == 4 else 0 # Simplified
-        
-        buyer_sunk[m] = interest_val + monthly_maint + monthly_predial - monthly_refund
-    else:
-        # Post-mortgage, sunk costs drop significantly
-        buyer_sunk[m] = (house_value[m] * (annual_maint_pct + predial_rate)) / 12
-
-# Plotly Sunk Cost Chart
 fig_sunk = go.Figure()
-fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=buyer_sunk, 
-                             name='Owner (Sunk)', line=dict(color='#00CC96', width=3)))
-fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=renter_sunk, 
-                             name='Renter (Sunk)', line=dict(color='#636EFA',  width=3)))
-fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, Maint vs Rent)", 
-                      yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
+fig_sunk.add_trace(go.Scatter(x=df['Year'], y=buyer_sunk, name='Buyer Sunk', line=dict(color='#00CC96', width=2)))
+fig_sunk.add_trace(go.Scatter(x=df['Year'], y=renter_sunk, name='Renter Sunk', line=dict(color='#636EFA', dash='dash')))
 st.plotly_chart(fig_sunk, use_container_width=True)
 
-# --- ANALYSIS & MILESTONES ---
+# --- MILESTONES ---
 st.divider()
 st.header("🎯 Key Decision Milestones")
+c_be = next((i/12 for i in range(12, months) if buyer_sunk[i] < renter_sunk[i]), None)
+w_be = next((i/12 for i in range(24, months) if buyer_liquid_nw[i] > renter_liquid_nw[i]), None)
 
-# 1. Calculation: Monthly Sunk Cost Breakeven
-cash_breakeven_year = None
-for i in range(12, len(buyer_sunk)):
-    if buyer_sunk[i] < renter_sunk[i]:
-        cash_breakeven_year = i / 12
-        break
+col1, col2 = st.columns(2)
+col1.metric("Monthly Cost Parity", f"{c_be:.1f} Years" if c_be else "Never")
+col2.metric("Wealth Breakeven", f"{w_be:.1f} Years" if w_be else "Never")
 
-# 2. Calculation: Wealth Breakeven (Liquid Wealth Parity)
-wealth_breakeven_year = None
-for i in range(24, len(buyer_liquid_nw)):
-    if buyer_liquid_nw[i] > renter_liquid_nw[i]:
-        wealth_breakeven_year = i / 12
-        break
-
-c1, c2 = st.columns(2)
-with c1:
-    val_cash = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
-    st.metric("Monthly 'Loss' Parity", val_cash)
-    st.caption("When your monthly unrecoverable costs (interest/maint) finally drop below rent.")
-
-with c2:
-    val_wealth = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
-    st.metric("Wealth Breakeven", val_wealth)
-    st.caption("Minimum time to own the property to be richer than the renter.")
-
-# --- YEAR 10 EXIT COMPARISON ---
-st.subheader(f"💰 Cash-in-Hand if you Sell in Year 10")
-st.write("Liquid wealth available after all taxes and transaction fees:")
-
-idx_10 = 120 
-buyer_cash_10 = buyer_liquid_nw[idx_10]
-renter_cash_10 = renter_liquid_nw[idx_10]
-
-c1, c2 = st.columns(2)
-c1.metric("Buyer's Liquid Wealth", f"${buyer_cash_10:,.0f}")
-c2.metric("Renter's Liquid Wealth", f"${renter_cash_10:,.0f}")
+st.subheader("💰 Cash-in-Hand (Year 10)")
+col3, col4 = st.columns(2)
+col3.metric("Buyer's Liquid Wealth", f"${buyer_liquid_nw[120]:,.0f}")
+col4.metric("Renter's Liquid Wealth", f"${renter_liquid_nw[120]:,.0f}")
