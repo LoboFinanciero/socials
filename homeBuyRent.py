@@ -145,6 +145,44 @@ fig.update_layout(title="Net Wealth If You Cashed Out Today (Post-Tax & Fees)",
                   yaxis_title="MXN ($)", xaxis_title="Years")
 st.plotly_chart(fig, use_container_width=True)
 
+# --- SUNK COST ANALYSIS ---
+buyer_sunk = np.zeros(months + 1)
+renter_sunk = np.zeros(months + 1)
+
+# Mexico specific variables
+predial_rate = 0.002 # 0.2% is a common average in Mexico
+current_rent_sunk = initial_rent
+
+for m in range(1, months + 1):
+    if m % 12 == 0:
+        current_rent_sunk *= (1 + rent_increase)
+    
+    # Renter Sunk Cost is just the monthly rent
+    renter_sunk[m] = current_rent_sunk
+    
+    # Buyer Sunk Cost (Monthly Interest + Maint + Predial - Monthly Tax Refund)
+    if m <= n_payments:
+        # We divide annual items by 12
+        monthly_maint = (house_value[m] * annual_maint_pct) / 12
+        monthly_predial = (house_value[m] * predial_rate) / 12
+        interest_val = remaining_loan[m-1] * (mortgage_rate / 12)
+        
+        # Monthly tax refund proxy
+        monthly_refund = tax_refund / 12 if m % 12 == 4 else 0 # Simplified
+        
+        buyer_sunk[m] = interest_val + monthly_maint + monthly_predial - monthly_refund
+    else:
+        # Post-mortgage, sunk costs drop significantly
+        buyer_sunk[m] = (house_value[m] * (annual_maint_pct + predial_rate)) / 12
+
+# Plotly Sunk Cost Chart
+fig_sunk = go.Figure()
+fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=renter_sunk, name='Sunk Cost: Rent', line=dict(color='#636EFA', dash='dash')))
+fig_sunk.add_trace(go.Scatter(x=df_liquid['Year'], y=buyer_sunk, name='Sunk Cost: Owning', line=dict(color='#EF553B')))
+fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, Maint vs Rent)", 
+                      yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
+st.plotly_chart(fig_sunk, use_container_width=True)
+
 # --- FINAL VERDICT ---
 st.divider()
 c1, c2 = st.columns(2)
