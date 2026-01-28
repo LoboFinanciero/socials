@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-# --- CONFIGURATION ---
 st.set_page_config(page_title="Mexico Buy vs Rent: 50Y Analysis", layout="wide")
 st.title("🏡 The 50-Year Wealth Battle: Mexico Edition")
 
@@ -15,12 +14,12 @@ with st.sidebar:
     closing_costs_pct = st.slider("Closing Costs (ISAI, Notary) (%)", 4, 9, 6)
     mortgage_rate = st.slider("Mortgage Interest Rate (%)", 8.0, 14.0, 11.0) / 100
     loan_term_years = st.selectbox("Loan Term (Years)", [15, 20], index=1)
-    appreciation = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
+    appreciation_annual = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
     annual_maint_pct = st.slider("Annual Maint/Insurance (%)", 0.5, 2.0, 1.0) / 100
     
     st.header("📉 2. Renter Profile")
     initial_rent = st.number_input("Monthly Rent (Current)", value=22_000, step=1000)
-    rent_increase = st.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
+    rent_increase_annual = st.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
     inv_return = st.slider("Investment Return (Portfolio) (%)", 5.0, 15.0, 10.0) / 100
     
     st.header("⚖️ 3. Financials & Taxes")
@@ -31,105 +30,93 @@ with st.sidebar:
     marginal_tax_rate = 0.02 if is_resico else st.slider("Your ISR Bracket (%)", 20, 35, 30) / 100
     portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
 
-# --- CALCULATIONS ---
-# Pre-calculating monthly rates for smoother compounding
-monthly_appreciation = (1 + appreciation)**(1/12) - 1
-monthly_rent_increase = (1 + rent_increase)**(1/12) - 1
-monthly_inv_return = (1 + inv_return)**(1/12) - 1
-
+# --- INITIAL CONSTANTS ---
+months = 600
+n_payments = loan_term_years * 12
 down_payment_val = prop_price * (down_payment_pct / 100)
 closing_costs_val = prop_price * (closing_costs_pct / 100)
 initial_capital = down_payment_val + closing_costs_val 
 
 loan_amount = prop_price - down_payment_val
-monthly_rate = mortgage_rate / 12
-n_payments = loan_term_years * 12
-monthly_mortgage = loan_amount * (monthly_rate * (1 + monthly_rate)**n_payments) / ((1 + monthly_rate)**n_payments - 1)
+m_rate = mortgage_rate / 12
+monthly_mortgage = loan_amount * (m_rate * (1 + m_rate)**n_payments) / ((1 + m_rate)**n_payments - 1)
 
-# Initialize Arrays
-months = 600
+# --- THE SIMULATION LOOP ---
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
-buyer_investments = np.zeros(months + 1)
 renter_investments = np.zeros(months + 1)
 buyer_sunk = np.zeros(months + 1)
 renter_sunk = np.zeros(months + 1)
 
 house_value[0] = prop_price
 remaining_loan[0] = loan_amount
-renter_investments[0] = initial_capital
-current_rent = initial_rent
+renter_investments[0] = initial_capital # Renter starts with the cash the buyer "lost" to downpayment/closing
 
-# Mexico Tax Constants (2026 Estimates)
+current_rent = initial_rent
 uma_anual_2026 = 42794.64
 cap_deduccion = min(uma_anual_2026 * 5, annual_salary * 0.15)
-predial_rate = 0.002 / 12 # Monthly predial
+predial_rate = 0.002 / 12
 
-# --- SIMULATION ---
 for m in range(1, months + 1):
-    # Property & Rent Growth
-    house_value[m] = house_value[m-1] * (1 + monthly_appreciation)
-    current_rent *= (1 + monthly_rent_increase)
-    
-    # 1. BUYER LOGIC
+    # 1. Yearly "Step" Logic
+    # Every 12 months, the value and rent "jump"
+    if m % 12 == 1 and m > 1:
+        house_value[m] = house_value[m-1] * (1 + appreciation_annual)
+        current_rent *= (1 + rent_increase_annual)
+    else:
+        house_value[m] = house_value[m-1]
+
+    # 2. Buyer Logic (Mortgage & Sunk Costs)
+    maint_costs = (house_value[m] * annual_maint_pct) / 12
     if m <= n_payments:
-        interest_p = remaining_loan[m-1] * monthly_rate
+        interest_p = remaining_loan[m-1] * m_rate
         principal_p = monthly_mortgage - interest_p
         
-        # Real Interest Tax Deduction (Annualized check)
+        # Yearly Tax Refund (applied every 12th month)
         tax_refund = 0
         if not is_resico and m % 12 == 0:
-            # Simplified: Real interest is (Rate - Inflation)
             real_int_annual = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
             tax_refund = min(real_int_annual, cap_deduccion) * marginal_tax_rate
         
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - tax_refund)
-        maint = (house_value[m] * annual_maint_pct / 12)
-        buyer_outflow = monthly_mortgage + maint
-        
-        # Sunk Costs
-        buyer_sunk[m] = interest_p + maint + (house_value[m] * predial_rate) - (tax_refund / 12)
-        buyer_investments[m] = buyer_investments[m-1] * (1 + monthly_inv_return)
+        buyer_sunk[m] = interest_p + maint_costs + (house_value[m] * predial_rate) - (tax_refund / 12)
+        buyer_outflow = monthly_mortgage + maint_costs
     else:
         remaining_loan[m] = 0
-        maint = (house_value[m] * annual_maint_pct / 12)
-        buyer_outflow = maint
-        buyer_sunk[m] = maint + (house_value[m] * predial_rate)
-        # The Pivot: Mortgage money now goes to investments
-        buyer_investments[m] = buyer_investments[m-1] * (1 + monthly_inv_return) + monthly_mortgage
+        buyer_sunk[m] = maint_costs + (house_value[m] * predial_rate)
+        buyer_outflow = maint_costs
 
-    # 2. RENTER LOGIC
+    # 3. Renter Logic (Wealth accumulation)
+    # The renter invests the difference between the Buyer's total outflow and their rent
     savings_potential = buyer_outflow - current_rent
-    renter_investments[m] = renter_investments[m-1] * (1 + monthly_inv_return) + savings_potential
+    renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
     renter_sunk[m] = current_rent
 
-# --- LIQUIDATION LOGIC ---
-udi_val = 8.6759 # Jan 2026
+# --- VECTORIZED LIQUIDATION (Taxes & Fees) ---
+udi_val = 8.6759
 exencion_isr = 700_000 * udi_val
-
-# Vectorized Liquidation
-net_sale_price = house_value * 0.94 # 6% commissions/fees
-house_profit = np.maximum(0, net_sale_price - prop_price)
-taxable_house_profit = np.maximum(0, house_profit - exencion_isr)
-house_isr = taxable_house_profit * 0.20
-
-buyer_inv_liquid = buyer_investments * (1 - (portfolio_tax_rate * 0.5)) # Est. tax on gains only
-buyer_liquid_nw = (net_sale_price - remaining_loan - house_isr) + buyer_inv_liquid
-
-renter_inv_gains = np.maximum(0, renter_investments - initial_capital)
-renter_liquid_nw = renter_investments - (renter_inv_gains * portfolio_tax_rate)
-
-# --- VISUALS ---
 years_arr = np.arange(months + 1) / 12
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=years_arr, y=buyer_liquid_nw, name='Buyer Net Wealth', line=dict(color='#00CC96')))
-fig.add_trace(go.Scatter(x=years_arr, y=renter_liquid_nw, name='Renter Net Wealth', line=dict(color='#636EFA')))
-fig.update_layout(title="Total Liquid Wealth Over Time", yaxis_title="MXN", template="plotly_dark")
-st.plotly_chart(fig, use_container_width=True)
 
-# Sunk Cost Chart
-fig2 = go.Figure()
-fig2.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name='Buyer (Interest+Maint)', line=dict(color='#FF4B4B')))
-fig2.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name='Renter (Rent)', line=dict(color='#636EFA')))
-fig2.update_layout(title="Monthly Sunk Costs", yaxis_title="MXN", template="plotly_dark")
-st.plotly_chart(fig2, use_container_width=True)
+# Buyer Net Wealth: House Value - Loan - Selling Fees (6%) - ISR on Gains
+net_sale_price = house_value * 0.94 
+house_profit = np.maximum(0, net_sale_price - prop_price)
+taxable_profit = np.maximum(0, house_profit - exencion_isr)
+house_isr = taxable_profit * 0.20
+buyer_liquid_nw = net_sale_price - remaining_loan - house_isr
+
+# Renter Net Wealth: Total Portfolio - 10% Capital Gains Tax on profit
+renter_gains = np.maximum(0, renter_investments - initial_capital)
+renter_liquid_nw = renter_investments - (renter_gains * portfolio_tax_rate)
+
+# --- CHARTS ---
+fig_nw = go.Figure()
+fig_nw.add_trace(go.Scatter(x=years_arr, y=buyer_liquid_nw, name="Buyer (Home Equity)", line=dict(color='#00CC96', width=3)))
+fig_nw.add_trace(go.Scatter(x=years_arr, y=renter_liquid_nw, name="Renter (Portfolio)", line=dict(color='#636EFA', width=3)))
+fig_nw.update_layout(title="Net Wealth If You Sold Everything Today", template="plotly_dark")
+st.plotly_chart(fig_nw, use_container_width=True)
+
+fig_sunk = go.Figure()
+fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Owner: Interest+Maint+Taxes", line=dict(color='#FF4B4B')))
+fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Renter: Pure Rent", line=dict(color='#636EFA')))
+fig_sunk.update_layout(title="Monthly 'Lost' Money (Sunk Costs)", template="plotly_dark")
+st.plotly_chart(fig_sunk, use_container_width=True)
