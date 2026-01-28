@@ -187,28 +187,48 @@ fig_sunk.update_layout(title="Monthly 'Money Down the Drain' (Interest, Taxes, M
                       yaxis_title="Monthly Cost (MXN)", xaxis_title="Years")
 st.plotly_chart(fig_sunk, use_container_width=True)
 
-# --- FINAL VERDICT & ANALYSIS ---
+# --- ANALYSIS & MILESTONES ---
 st.divider()
-st.subheader("🏁 The Ultimate Verdict")
+st.header("🎯 Key Decision Milestones")
 
-# Finding the Sunk Cost Breakeven Year
-# We look for the first year after year 1 where buyer sunk cost is less than renter sunk cost
-breakeven_year = "Never"
-for i in range(12, len(buyer_sunk)): # Start checking after 1 year
+# 1. Calculation: Sunk Cost Breakeven (Monthly "Loss" Parity)
+cash_breakeven_year = None
+for i in range(12, len(buyer_sunk)):
     if buyer_sunk[i] < renter_sunk[i]:
-        breakeven_year = f"{i/12:.1f} Years"
+        cash_breakeven_year = i / 12
         break
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("Final Winner", "Buyer" if net_buyer_liquid > net_renter_liquid else "Renter")
-    st.caption("Based on Net Liquid Wealth at Year 50")
+# 2. Calculation: Wealth Breakeven (Total Liquid NW Parity)
+wealth_breakeven_year = None
+for i in range(24, len(buyer_liquid_nw)): # Check after 2 years to skip initial chaos
+    if buyer_liquid_nw[i] > renter_liquid_nw[i]:
+        wealth_breakeven_year = i / 12
+        break
 
-with col2:
-    st.metric("Sunk Cost Breakeven", breakeven_year)
-    st.caption("When owning becomes cheaper than renting monthly")
+# 3. Snapshot: Year 10 Reality
+# (Since you mentioned Year 10, let's show the actual status then)
+idx_10 = 120
+winner_10 = "Buyer" if buyer_liquid_nw[idx_10] > renter_liquid_nw[idx_10] else "Renter"
+diff_10 = abs(buyer_liquid_nw[idx_10] - renter_liquid_nw[idx_10])
 
-with col3:
-    total_tax_shield = (tax_refund * loan_term_years) if not is_resico else 0
-    st.metric("Est. Tax Savings", f"${total_tax_shield:,.0f}")
-    st.caption("Total ISR refunds over the life of the loan")
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    val = f"{cash_breakeven_year:.1f} Years" if cash_breakeven_year else "Never"
+    st.metric("Monthly 'Loss' Parity", val)
+    st.caption("When your monthly unrecoverable costs (interest/maint) finally drop below rent.")
+
+with c2:
+    val = f"{wealth_breakeven_year:.1f} Years" if wealth_breakeven_year else "Never"
+    st.metric("Wealth Breakeven", val)
+    st.caption("The minimum time you must keep the house to be richer than the renter.")
+
+with c3:
+    st.metric("Status at Year 10", winner_10)
+    st.caption(f"The {winner_10} is ahead by ${diff_10:,.0f} in liquid cash at the 10-year mark.")
+
+# Simple Insight
+if wealth_breakeven_year and wealth_breakeven_year > 10:
+    st.warning(f"⚠️ **Warning:** You won't break even on this purchase until year {wealth_breakeven_year:.1f}. If you plan to sell before then, Renting is mathematically superior.")
+else:
+    st.success(f"✅ **Good Investment:** This property pays for itself (vs renting) relatively quickly.")
