@@ -42,11 +42,9 @@ loan_amount = prop_price - down_payment_val
 m_rate = mortgage_rate / 12 
 monthly_mortgage = loan_amount * (m_rate * (1 + m_rate)**n_payments) / ((1 + m_rate)**n_payments - 1)
 
-# Tax limits for Mexico 2026
-uma_anual_2026 = 42794.64  # Estimated UMA for 2026
+uma_anual_2026 = 42794.64 
 cap_deduccion = min(uma_anual_2026 * 5, annual_salary * 0.15)
 
-# Initialize Arrays
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
 renter_investments = np.zeros(months + 1)
@@ -56,18 +54,16 @@ renter_sunk = np.zeros(months + 1)
 monthly_rents = np.zeros(months + 1)
 udi_arr = np.zeros(months + 1)
 
-# Starting State
 house_value[0] = prop_price
 remaining_loan[0] = loan_amount
 renter_investments[0] = initial_capital
 udi_arr[0] = 8.6759 
-current_rent = initial_rent
 monthly_rents[0] = initial_rent
-predial_rate = (0.002 / 12) * 0.6 # Adjusting for Cadastral value proxy
+current_rent = initial_rent
+predial_rate = (0.002 / 12) * 0.6 
 
 # --- SIMULATION LOOP ---
 for m in range(1, months + 1):
-    # 1. Update UDI and Asset Growth
     udi_arr[m] = udi_arr[m-1] * ((1 + inflation)**(1/12))
     house_value[m] = house_value[m-1] * ((1 + appreciation_annual)**(1/12))
     
@@ -75,33 +71,26 @@ for m in range(1, months + 1):
         current_rent *= (1 + rent_increase_annual)
     monthly_rents[m] = current_rent
 
-    # 2. Ownership Costs
     maint_costs = (house_value[m] * annual_maint_pct) / 12
     monthly_predial = house_value[m] * predial_rate
 
-    # 3. Buyer Logic
     if m <= n_payments:
         interest_p = remaining_loan[m-1] * m_rate
         principal_p = monthly_mortgage - interest_p
         
         current_tax_refund = 0
         if not is_resico and m % 12 == 4:
-            # Formula for Real Interest: (Nominal Rate - Inflation) * Balance
             real_int_deductible = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
             current_tax_refund = min(real_int_deductible, cap_deduccion) * marginal_tax_rate
         
-        # Apply refund to principal
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - current_tax_refund)
         buyer_outflow_monthly[m] = monthly_mortgage + maint_costs + monthly_predial
-        
-        # Sunk costs for the chart (Interest + Maint + Taxes - Refund benefit)
         buyer_sunk[m] = interest_p + maint_costs + monthly_predial - (current_tax_refund / 12 if m % 12 == 4 else 0)
     else:
         remaining_loan[m] = 0
         buyer_outflow_monthly[m] = maint_costs + monthly_predial
         buyer_sunk[m] = maint_costs + monthly_predial
 
-    # 4. Renter Logic
     renter_sunk[m] = current_rent
     savings_potential = buyer_outflow_monthly[m] - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
@@ -130,25 +119,10 @@ fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Renter: Pure Ren
 fig_sunk.update_layout(title="Monthly 'Lost' Money (Sunk Costs)", template="plotly_dark", yaxis_title="MXN ($)")
 st.plotly_chart(fig_sunk, use_container_width=True)
 
-# Monthly Outflow Array
-buyer_outflow_monthly = np.zeros(months + 1)
-for m in range(1, months + 1):
-    maint = (house_value[m] * annual_maint_pct) / 12
-    predial = (house_value[m] * predial_rate)
-    temp_refund = 0
-    if not is_resico and m <= n_payments:
-        real_int_annual = max(0, (mortgage_rate - inflation) * remaining_loan[max(0, m-1)])
-        temp_refund = (min(real_int_annual, cap_deduccion) * marginal_tax_rate) / 12
-
-    if m <= n_payments:
-        buyer_outflow_monthly[m] = monthly_mortgage + maint + predial - temp_refund
-    else:
-        buyer_outflow_monthly[m] = maint + predial
-
 fig_outflow = go.Figure()
-fig_outflow.add_trace(go.Scatter(x=years_arr, y=buyer_outflow_monthly, name="Buyer: Total Monthly Spend", line=dict(color='#00CC96', width=3)))
+fig_outflow.add_trace(go.Scatter(x=years_arr, y=buyer_outflow_monthly, name="Buyer: Monthly Out-of-Pocket", line=dict(color='#00CC96', width=3)))
 fig_outflow.add_trace(go.Scatter(x=years_arr, y=monthly_rents, name="Renter: Monthly Rent", line=dict(color='#636EFA', width=3)))
-fig_outflow.update_layout(title="Total Monthly Out-of-Pocket Cost (Cash Flow)", yaxis_title="MXN ($)", xaxis_title="Years", template="plotly_dark")
+fig_outflow.update_layout(title="Cash Flow Comparison (Monthly Spend)", yaxis_title="MXN ($)", xaxis_title="Years", template="plotly_dark")
 st.plotly_chart(fig_outflow, use_container_width=True)
 
 # --- VERDICT ---
@@ -162,7 +136,7 @@ wealth_breakeven_year = next((i/12 for i in range(12, len(buyer_liquid_nw)) if b
 c1, c2, c3 = st.columns(3)
 with c1:
     st.metric("Monthly Budget Parity", f"{cash_breakeven_year:.1f} Yrs" if cash_breakeven_year else "Never")
-    st.caption("When rent exceeds the monthly mortgage + maint.")
+    st.caption("When rent exceeds the monthly mortgage + expenses.")
 with c2:
     st.metric("The 'Waste' Breakeven", f"{sunk_breakeven_year:.1f} Yrs" if sunk_breakeven_year else "Never")
     st.caption("When rent exceeds interest and maintenance.")
@@ -173,27 +147,23 @@ with c3:
 with st.expander("📝 View Detailed Assumptions & Mexico-Specific Logic"):
     st.markdown("### 🛠️ The Financial Engine")
     st.info("**Note on Discipline:** This model assumes both parties are hyper-disciplined. The Buyer uses every cent of their tax refund to pay down debt, and the Renter invests 100% of their potential savings into their portfolio without fail.")
-    
     col_a, col_b = st.columns(2)
-    
     with col_a:
         st.markdown("""
         **1. Ownership & Taxes**
-        * **Tax Refunds:** Based on 'Real Interest' (Mortgage Rate - Inflation). Only applies to employees (*Sueldos y Salarios*).
-        * **Refund Strategy:** Refunds are modeled as annual *Pagos a Capital* (Principal Paydowns) every April, accelerating equity.
-        * **Tax Limits:** Deductions capped at **5 UMAs** ($213,973 MXN/year) or **15% of gross income**.
-        * **Exemption:** Upon sale, the first **700,000 UDIs** of profit are tax-free. The UDI value is adjusted for inflation monthly.
-        * **Predial:** Estimated at 0.2% annually on a 'Cadastral' value proxy (60% of market price).
+        * **Tax Refunds:** Based on 'Real Interest'. Only applies to employees (*Sueldos y Salarios*).
+        * **Refund Strategy:** Modeled as annual principal paydowns every April.
+        * **Tax Limits:** Capped at 5 UMAs or 15% of income.
+        * **Exemption:** First 700k UDIs of profit are tax-free (UDI adjusts monthly for inflation).
+        * **Predial:** Estimated at 0.2% annually on a 60% cadastral value proxy.
         """)
-
     with col_b:
         st.markdown("""
         **2. Renting & Investing**
-        * **Initial Capital:** The Renter starts with a portfolio equal to the Buyer's Down Payment + Closing Costs.
-        * **Opportunity Cost:** Every month, the difference between the Buyer's total spend and the Current Rent is invested (or withdrawn) from the portfolio.
-        * **Portfolio Tax:** A flat **10% tax** is applied to all capital gains upon liquidation (standard for the Mexican Stock Exchange).
-        * **Selling Costs:** A **6% commission** is subtracted from the Home Value if 'sold' to reflect real estate fees.
+        * **Initial Capital:** Renter starts with Buyer's Down Payment + Closing Costs.
+        * **Opportunity Cost:** Monthly difference in spend is invested (or withdrawn) from portfolio.
+        * **Portfolio Tax:** 10% tax on gains (standard for BMV).
+        * **Selling Costs:** 6% commission subtracted from Home Value upon sale.
         """)
-    
     st.write("---")
-    st.caption(f"Model parameters based on 2026 Mexican Tax Law (ISR/UMA). UDI Baseline: {udi_arr[0]:.4f}")
+    st.caption(f"Model parameters based on 2026 Mexican Tax Law. UDI Baseline: {udi_arr[0]:.4f}")
