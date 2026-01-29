@@ -41,6 +41,12 @@ loan_amount = prop_price - down_payment_val
 m_rate = mortgage_rate / 12  # Standardized to m_rate
 monthly_mortgage = loan_amount * (m_rate * (1 + m_rate)**n_payments) / ((1 + m_rate)**n_payments - 1)
 
+# Dynamic UDI
+udi_val_initial = 8.6759
+exencion_limit_udis = 700_000
+udi_arr = np.zeros(months + 1)
+udi_arr[0] = udi_val_initial
+
 # --- SIMULATION ARRAYS ---
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
@@ -59,50 +65,58 @@ uma_anual_2026 = 42794.64
 cap_deduccion = min(uma_anual_2026 * 5, annual_salary * 0.15)
 predial_rate = 0.002 / 12
 
-# --- SIMULATION LOOP ---
+# --- SIMULATION LOOP (REFINED) ---
+buyer_outflow_monthly = np.zeros(months + 1)
+udi_arr = np.zeros(months + 1)
+udi_arr[0] = 8.6759  # Current UDI value
+
 for m in range(1, months + 1):
-    # 1. Yearly "Step" Logic
+    # 1. UDI & Rent Growth
+    # UDI follows inflation monthly
+    udi_arr[m] = udi_arr[m-1] * ((1 + inflation)**(1/12))
+    
     if m % 12 == 1 and m > 1:
-        house_value[m] = house_value[m-1] * (1 + appreciation_annual)
         current_rent *= (1 + rent_increase_annual)
-    else:
-        house_value[m] = house_value[m-1]
-
     monthly_rents[m] = current_rent
-    maint_costs = (house_value[m] * annual_maint_pct) / 12
-    monthly_predial = house_value[m] * predial_rate
 
-    # 2. Buyer Logic
+    # 2. Ownership Costs
+    maint_costs = (house_value[m-1] * annual_maint_pct) / 12
+    monthly_predial = (house_value[m-1] * 0.6) * (0.002 / 12) 
+
+    # 3. Buyer Logic: Debt & Tax Refund
     if m <= n_payments:
         interest_p = remaining_loan[m-1] * m_rate
         principal_p = monthly_mortgage - interest_p
         
         current_tax_refund = 0
+        # In Mexico, you file in April (Month 4, 16, 28...)
         if not is_resico and m % 12 == 4:
-            real_int = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
-            current_tax_refund = min(real_int, cap_deduccion) * marginal_tax_rate
+            # Simple annual approx: (Rate - Inflation) * Balance
+            real_int_deductible = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
+            current_tax_refund = min(real_int_deductible, cap_deduccion) * marginal_tax_rate
         
+        # Refund acts as an extra payment to principal
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - current_tax_refund)
-        buyer_outflow = monthly_mortgage + maint_costs
-        buyer_sunk[m] = interest_p + maint_costs + monthly_predial - (current_tax_refund / 12 if m % 12 == 4 else 0)
+        
+        # CASH FLOW: Full mortgage + costs (refund is 'spent' on the loan)
+        buyer_outflow_monthly[m] = monthly_mortgage + maint_costs + monthly_predial
     else:
         remaining_loan[m] = 0
-        buyer_outflow = maint_costs
-        buyer_sunk[m] = maint_costs + monthly_predial
+        buyer_outflow_monthly[m] = maint_costs + monthly_predial
 
-    # 3. Renter Logic
-    savings_potential = buyer_outflow - current_rent
+    # 4. Renter Logic
+    # The 'savings_potential' can be negative (if rent > buyer costs), 
+    # which correctly draws down the renter's portfolio.
+    savings_potential = buyer_outflow_monthly[m] - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
-    renter_sunk[m] = current_rent
 
 # --- VECTORIZED LIQUIDATION ---
-udi_val = 8.6759
-exencion_isr = 700_000 * udi_val
-years_arr = np.arange(months + 1) / 12
+exencion_isr_dynamic = exencion_limit_udis * udi_arr  # Array of exemption values
 
 net_sale_price = house_value * 0.94 
 house_profit = np.maximum(0, net_sale_price - prop_price)
-taxable_profit = np.maximum(0, house_profit - exencion_isr)
+# Use the dynamic exemption for each specific month of sale
+taxable_profit = np.maximum(0, house_profit - exencion_isr_dynamic)
 house_isr = taxable_profit * 0.20
 buyer_liquid_nw = net_sale_price - remaining_loan - house_isr
 
