@@ -30,96 +30,86 @@ with st.sidebar:
     marginal_tax_rate = 0.02 if is_resico else st.slider("Your ISR Bracket (%)", 20, 35, 30) / 100
     portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
 
-# --- INITIAL CONSTANTS ---
+# --- INITIAL CONSTANTS & ARRAYS ---
 months = 600
+years_arr = np.arange(months + 1) / 12  # <--- Defined this first to fix the error
 n_payments = loan_term_years * 12
 down_payment_val = prop_price * (down_payment_pct / 100)
 closing_costs_val = prop_price * (closing_costs_pct / 100)
 initial_capital = down_payment_val + closing_costs_val 
 
 loan_amount = prop_price - down_payment_val
-m_rate = mortgage_rate / 12  # Standardized to m_rate
+m_rate = mortgage_rate / 12 
 monthly_mortgage = loan_amount * (m_rate * (1 + m_rate)**n_payments) / ((1 + m_rate)**n_payments - 1)
 
-# Dynamic UDI
-udi_val_initial = 8.6759
-exencion_limit_udis = 700_000
-udi_arr = np.zeros(months + 1)
-udi_arr[0] = udi_val_initial
-
-# --- SIMULATION ARRAYS ---
+# Initialize Arrays
 house_value = np.zeros(months + 1)
 remaining_loan = np.zeros(months + 1)
 renter_investments = np.zeros(months + 1)
-buyer_sunk = np.zeros(months + 1)
-renter_sunk = np.zeros(months + 1)
+buyer_outflow_monthly = np.zeros(months + 1)
 monthly_rents = np.zeros(months + 1)
+udi_arr = np.zeros(months + 1)
 
+# Starting State
 house_value[0] = prop_price
 remaining_loan[0] = loan_amount
 renter_investments[0] = initial_capital
+udi_arr[0] = 8.6759 # Current UDI baseline
 current_rent = initial_rent
 monthly_rents[0] = initial_rent
 
-uma_anual_2026 = 42794.64
-cap_deduccion = min(uma_anual_2026 * 5, annual_salary * 0.15)
-predial_rate = 0.002 / 12
+# Predial Proxy (60% of market value)
+predial_rate = (0.002 / 12) * 0.6
 
-# --- SIMULATION LOOP (REFINED) ---
-buyer_outflow_monthly = np.zeros(months + 1)
-udi_arr = np.zeros(months + 1)
-udi_arr[0] = 8.6759  # Current UDI value
-
+# --- SIMULATION LOOP ---
 for m in range(1, months + 1):
-    # 1. UDI & Rent Growth
-    # UDI follows inflation monthly
+    # 1. Update UDI and Asset Growth
     udi_arr[m] = udi_arr[m-1] * ((1 + inflation)**(1/12))
     
+    # Smooth house appreciation, stepped rent
+    house_value[m] = house_value[m-1] * ((1 + appreciation_annual)**(1/12))
     if m % 12 == 1 and m > 1:
         current_rent *= (1 + rent_increase_annual)
     monthly_rents[m] = current_rent
 
     # 2. Ownership Costs
-    maint_costs = (house_value[m-1] * annual_maint_pct) / 12
-    monthly_predial = (house_value[m-1] * 0.6) * (0.002 / 12) 
+    maint_costs = (house_value[m] * annual_maint_pct) / 12
+    monthly_predial = house_value[m] * predial_rate
 
-    # 3. Buyer Logic: Debt & Tax Refund
+    # 3. Buyer Logic
     if m <= n_payments:
         interest_p = remaining_loan[m-1] * m_rate
         principal_p = monthly_mortgage - interest_p
         
+        # April Tax Refund Logic
         current_tax_refund = 0
-        # In Mexico, you file in April (Month 4, 16, 28...)
         if not is_resico and m % 12 == 4:
-            # Simple annual approx: (Rate - Inflation) * Balance
             real_int_deductible = max(0, (mortgage_rate - inflation) * remaining_loan[m-1])
             current_tax_refund = min(real_int_deductible, cap_deduccion) * marginal_tax_rate
         
-        # Refund acts as an extra payment to principal
+        # Apply refund to principal (your preferred strategy)
         remaining_loan[m] = max(0, remaining_loan[m-1] - principal_p - current_tax_refund)
-        
-        # CASH FLOW: Full mortgage + costs (refund is 'spent' on the loan)
         buyer_outflow_monthly[m] = monthly_mortgage + maint_costs + monthly_predial
     else:
         remaining_loan[m] = 0
         buyer_outflow_monthly[m] = maint_costs + monthly_predial
 
     # 4. Renter Logic
-    # The 'savings_potential' can be negative (if rent > buyer costs), 
-    # which correctly draws down the renter's portfolio.
+    # Renter invests the difference between Ownership costs and Rent
     savings_potential = buyer_outflow_monthly[m] - current_rent
     renter_investments[m] = renter_investments[m-1] * (1 + inv_return/12) + savings_potential
 
-# --- VECTORIZED LIQUIDATION ---
-exencion_isr_dynamic = exencion_limit_udis * udi_arr  # Array of exemption values
+# --- VECTORIZED LIQUIDATION (TAXES) ---
+# Exemption grows with UDI
+exencion_isr_dynamic = 700_000 * udi_arr
 
-net_sale_price = house_value * 0.94 
+net_sale_price = house_value * 0.94 # 6% selling costs
 house_profit = np.maximum(0, net_sale_price - prop_price)
-# Use the dynamic exemption for each specific month of sale
 taxable_profit = np.maximum(0, house_profit - exencion_isr_dynamic)
 house_isr = taxable_profit * 0.20
 buyer_liquid_nw = net_sale_price - remaining_loan - house_isr
 
+# Renter Taxes
 renter_gains = np.maximum(0, renter_investments - initial_capital)
 renter_liquid_nw = renter_investments - (renter_gains * portfolio_tax_rate)
 
