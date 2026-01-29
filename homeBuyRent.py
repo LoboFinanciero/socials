@@ -171,17 +171,29 @@ with c3:
     st.caption("When you're officially richer as an owner.")
 
 with st.expander("📝 View Detailed Assumptions & Mexico-Specific Logic"):
-    st.markdown("""
-    **1. Tax Deductibility (ISR)**
-    - Deducts 'Real Interest' only (Interest Rate - Inflation).
-    - Capped at 5 UMAs or 15% of salary.
-    - **Note:** Tax refunds are automatically modeled as extra payments to mortgage principal.
+    st.markdown("### 🛠️ The Financial Engine")
+    st.info("**Note on Discipline:** This model assumes both parties are hyper-disciplined. The Buyer uses every cent of their tax refund to pay down debt, and the Renter invests 100% of their potential savings into their portfolio without fail.")
     
-    **2. Selling the Property**
-    - 6% sales commission is assumed.
-    - First 700k UDIs of profit are tax-exempt (UDI grows with inflation).
+    col_a, col_b = st.columns(2)
     
-    **3. Renter Portfolio**
-    - Renter invests/draws the 'cash flow difference' vs the buyer.
-    - 10% tax on all portfolio gains.
-    """)
+    with col_a:
+        st.markdown("""
+        **1. Ownership & Taxes**
+        * **Tax Refunds:** Based on 'Real Interest' (Mortgage Rate - Inflation). Only applies to employees (*Sueldos y Salarios*).
+        * **Refund Strategy:** Refunds are modeled as annual *Pagos a Capital* (Principal Paydowns) every April, accelerating equity.
+        * **Tax Limits:** Deductions capped at **5 UMAs** ($213,973 MXN/year) or **15% of gross income**.
+        * **Exemption:** Upon sale, the first **700,000 UDIs** of profit are tax-free. The UDI value is adjusted for inflation monthly.
+        * **Predial:** Estimated at 0.2% annually on a 'Cadastral' value proxy (60% of market price).
+        """)
+
+    with col_b:
+        st.markdown("""
+        **2. Renting & Investing**
+        * **Initial Capital:** The Renter starts with a portfolio equal to the Buyer's Down Payment + Closing Costs.
+        * **Opportunity Cost:** Every month, the difference between the Buyer's total spend and the Current Rent is invested (or withdrawn) from the portfolio.
+        * **Portfolio Tax:** A flat **10% tax** is applied to all capital gains upon liquidation (standard for the Mexican Stock Exchange).
+        * **Selling Costs:** A **6% commission** is subtracted from the Home Value if 'sold' to reflect real estate fees.
+        """)
+    
+    st.write("---")
+    st.caption(f"Model parameters based on 2026 Mexican Tax Law (ISR/UMA). UDI Baseline: {udi_arr[0]:.4f}")
