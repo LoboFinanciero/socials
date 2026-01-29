@@ -3,32 +3,32 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Mexico Buy vs Rent: 50Y Analysis", layout="wide")
-st.title("🏡 The 50-Year Wealth Battle: Mexico Edition")
+st.set_page_config(page_title="México Comprar vs Rentar: Análisis 50 Años", layout="wide")
+st.title("🏡 La Batalla de Riqueza a 50 Años: Edición México")
 
 # --- SIDEBAR: INPUTS ---
 with st.sidebar:
-    st.header("🏠 1. Buyer Profile")
-    prop_price = st.number_input("Property Price (MXN)", value=5_000_000, step=100_000)
-    down_payment_pct = st.slider("Down Payment (%)", 10, 50, 20)
-    closing_costs_pct = st.slider("Closing Costs (ISAI, Notary) (%)", 4, 9, 6)
-    mortgage_rate = st.slider("Mortgage Interest Rate (%)", 8.0, 14.0, 11.0) / 100
-    loan_term_years = st.selectbox("Loan Term (Years)", [15, 20], index=1)
-    appreciation_annual = st.slider("Home Appreciation (%)", 2.0, 10.0, 5.5) / 100
-    annual_maint_pct = st.slider("Annual Maint/Insurance (%)", 0.5, 2.0, 1.0) / 100
+    st.header("🏠 1. Perfil del Comprador")
+    prop_price = st.number_input("Precio de la Propiedad (MXN)", value=5_000_000, step=100_000)
+    down_payment_pct = st.slider("Enganche (%)", 10, 50, 20)
+    closing_costs_pct = st.slider("Costos de Cierre (ISAI, Notario) (%)", 4, 9, 6)
+    mortgage_rate = st.slider("Tasa de Interés Hipotecario (%)", 8.0, 14.0, 11.0) / 100
+    loan_term_years = st.selectbox("Plazo del Crédito (Años)", [15, 20], index=1)
+    appreciation_annual = st.slider("Plusvalía Anual (%)", 2.0, 10.0, 5.5) / 100
+    annual_maint_pct = st.slider("Mantenimiento/Seguro Anual (%)", 0.5, 2.0, 1.0) / 100
     
-    st.header("📉 2. Renter Profile")
-    initial_rent = st.number_input("Monthly Rent (Current)", value=22_000, step=1000)
-    rent_increase_annual = st.slider("Annual Rent Increase (%)", 2.0, 10.0, 5.0) / 100
-    inv_return = st.slider("Investment Return (Portfolio) (%)", 5.0, 15.0, 10.0) / 100
+    st.header("📉 2. Perfil del Arrendatario")
+    initial_rent = st.number_input("Renta Mensual (Actual)", value=22_000, step=1000)
+    rent_increase_annual = st.slider("Incremento Anual de Renta (%)", 2.0, 10.0, 5.0) / 100
+    inv_return = st.slider("Rendimiento de Inversión (Portafolio) (%)", 5.0, 15.0, 10.0) / 100
     
-    st.header("⚖️ 3. Financials & Taxes")
-    inflation = st.slider("General Inflation (CPI) (%)", 2.0, 7.0, 4.5) / 100
-    annual_salary = st.number_input("Annual Gross Salary (MXN)", value=800_000, step=50_000)
-    is_resico = st.checkbox("Are you in RESICO?", value=False)
+    st.header("⚖️ 3. Finanzas e Impuestos")
+    inflation = st.slider("Inflación General (INPC) (%)", 2.0, 7.0, 4.5) / 100
+    annual_salary = st.number_input("Salario Bruto Anual (MXN)", value=800_000, step=50_000)
+    is_resico = st.checkbox("¿Estás en RESICO?", value=False)
     
-    marginal_tax_rate = 0.02 if is_resico else st.slider("Your ISR Bracket (%)", 20, 35, 30) / 100
-    portfolio_tax_rate = st.slider("Portfolio Capital Gains Tax (%)", 0, 35, 10) / 100
+    marginal_tax_rate = 0.02 if is_resico else st.slider("Tu Tasa Marginal de ISR (%)", 20, 35, 30) / 100
+    portfolio_tax_rate = st.slider("Impuesto sobre Ganancias de Capital (%)", 0, 35, 10) / 100
 
 # --- INITIAL CONSTANTS & ARRAYS ---
 months = 600
@@ -108,26 +108,26 @@ renter_liquid_nw = renter_investments - (renter_gains * portfolio_tax_rate)
 
 # --- CHARTS ---
 fig_nw = go.Figure()
-fig_nw.add_trace(go.Scatter(x=years_arr, y=buyer_liquid_nw, name="Buyer (Home Equity)", line=dict(color='#00CC96', width=3)))
-fig_nw.add_trace(go.Scatter(x=years_arr, y=renter_liquid_nw, name="Renter (Portfolio)", line=dict(color='#636EFA', width=3)))
-fig_nw.update_layout(title="Net Wealth If You Sold Everything Today", template="plotly_dark", yaxis_title="MXN ($)")
+fig_nw.add_trace(go.Scatter(x=years_arr, y=buyer_liquid_nw, name="Comprador (Patrimonio Inmobiliario)", line=dict(color='#00CC96', width=3)))
+fig_nw.add_trace(go.Scatter(x=years_arr, y=renter_liquid_nw, name="Arrendatario (Portafolio)", line=dict(color='#636EFA', width=3)))
+fig_nw.update_layout(title="Patrimonio Neto Si Vendieras Todo Hoy", template="plotly_dark", yaxis_title="MXN ($)")
 st.plotly_chart(fig_nw, use_container_width=True)
 
 fig_sunk = go.Figure()
-fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Owner: Interest+Maint+Taxes", line=dict(color='#00CC96')))
-fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Renter: Pure Rent", line=dict(color='#636EFA')))
-fig_sunk.update_layout(title="Monthly 'Lost' Money (Sunk Costs)", template="plotly_dark", yaxis_title="MXN ($)")
+fig_sunk.add_trace(go.Scatter(x=years_arr, y=buyer_sunk, name="Propietario: Intereses+Mant.+Impuestos", line=dict(color='#00CC96')))
+fig_sunk.add_trace(go.Scatter(x=years_arr, y=renter_sunk, name="Arrendatario: Renta Pura", line=dict(color='#636EFA')))
+fig_sunk.update_layout(title="Dinero 'Perdido' Mensual (Costos Hundidos)", template="plotly_dark", yaxis_title="MXN ($)")
 st.plotly_chart(fig_sunk, use_container_width=True)
 
 fig_outflow = go.Figure()
-fig_outflow.add_trace(go.Scatter(x=years_arr, y=buyer_outflow_monthly, name="Buyer: Monthly Out-of-Pocket", line=dict(color='#00CC96', width=3)))
-fig_outflow.add_trace(go.Scatter(x=years_arr, y=monthly_rents, name="Renter: Monthly Rent", line=dict(color='#636EFA', width=3)))
-fig_outflow.update_layout(title="Cash Flow Comparison (Monthly Spend)", yaxis_title="MXN ($)", xaxis_title="Years", template="plotly_dark")
+fig_outflow.add_trace(go.Scatter(x=years_arr, y=buyer_outflow_monthly, name="Comprador: Gasto Mensual", line=dict(color='#00CC96', width=3)))
+fig_outflow.add_trace(go.Scatter(x=years_arr, y=monthly_rents, name="Arrendatario: Renta Mensual", line=dict(color='#636EFA', width=3)))
+fig_outflow.update_layout(title="Comparación de Flujo de Efectivo (Gasto Mensual)", yaxis_title="MXN ($)", xaxis_title="Años", template="plotly_dark")
 st.plotly_chart(fig_outflow, use_container_width=True)
 
 # --- VERDICT ---
 st.divider()
-st.header("🎯 The Verdict: When does Buying Win?")
+st.header("🎯 El Veredicto: ¿Cuándo Gana Comprar?")
 
 cash_breakeven_year = next((i/12 for i in range(1, len(buyer_outflow_monthly)) if monthly_rents[i] > buyer_outflow_monthly[i]), None)
 sunk_breakeven_year = next((i/12 for i in range(1, len(buyer_sunk)) if renter_sunk[i] > buyer_sunk[i]), None)
@@ -135,35 +135,35 @@ wealth_breakeven_year = next((i/12 for i in range(12, len(buyer_liquid_nw)) if b
 
 c1, c2, c3 = st.columns(3)
 with c1:
-    st.metric("Monthly Budget Parity", f"{cash_breakeven_year:.1f} Yrs" if cash_breakeven_year else "Never")
-    st.caption("When rent exceeds the monthly mortgage + expenses.")
+    st.metric("Paridad de Presupuesto Mensual", f"{cash_breakeven_year:.1f} Años" if cash_breakeven_year else "Nunca")
+    st.caption("Cuando la renta supera la hipoteca + gastos mensuales.")
 with c2:
-    st.metric("The 'Waste' Breakeven", f"{sunk_breakeven_year:.1f} Yrs" if sunk_breakeven_year else "Never")
-    st.caption("When rent exceeds interest and maintenance.")
+    st.metric("Equilibrio de 'Dinero Tirado'", f"{sunk_breakeven_year:.1f} Años" if sunk_breakeven_year else "Nunca")
+    st.caption("Cuando la renta supera intereses y mantenimiento.")
 with c3:
-    st.metric("Total Wealth Parity", f"{wealth_breakeven_year:.1f} Yrs" if wealth_breakeven_year else "Never")
-    st.caption("When you're officially richer as an owner.")
+    st.metric("Paridad de Patrimonio Total", f"{wealth_breakeven_year:.1f} Años" if wealth_breakeven_year else "Nunca")
+    st.caption("Cuando oficialmente eres más rico como propietario.")
 
-with st.expander("📝 View Detailed Assumptions & Mexico-Specific Logic"):
-    st.markdown("### 🛠️ The Financial Engine")
-    st.info("**Note on Discipline:** This model assumes both parties are hyper-disciplined. The Buyer uses every cent of their tax refund to pay down debt, and the Renter invests 100% of their potential savings into their portfolio without fail.")
+with st.expander("📝 Ver Supuestos Detallados y Lógica Específica de México"):
+    st.markdown("### 🛠️ El Motor Financiero")
+    st.info("**Nota sobre Disciplina:** Este modelo asume que ambas partes son extremadamente disciplinadas. El Comprador usa cada centavo de su devolución de impuestos para reducir la deuda, y el Arrendatario invierte el 100% de sus ahorros potenciales en su portafolio sin falta.")
     col_a, col_b = st.columns(2)
     with col_a:
         st.markdown("""
-        **1. Ownership & Taxes**
-        * **Tax Refunds:** Based on 'Real Interest'. Only applies to employees (*Sueldos y Salarios*).
-        * **Refund Strategy:** Modeled as annual principal paydowns every April.
-        * **Tax Limits:** Capped at 5 UMAs or 15% of income.
-        * **Exemption:** First 700k UDIs of profit are tax-free (UDI adjusts monthly for inflation).
-        * **Predial:** Estimated at 0.2% annually on a 60% cadastral value proxy.
+        **1. Propiedad e Impuestos**
+        * **Devoluciones de Impuestos:** Basadas en 'Interés Real'. Solo aplica para empleados (*Sueldos y Salarios*).
+        * **Estrategia de Devolución:** Modelada como pagos a capital anuales cada abril.
+        * **Límites Fiscales:** Topados a 5 UMAs o 15% del ingreso.
+        * **Exención:** Los primeros 700k UDIs de ganancia están libres de impuestos (UDI se ajusta mensualmente por inflación).
+        * **Predial:** Estimado en 0.2% anual sobre un proxy de 60% del valor catastral.
         """)
     with col_b:
         st.markdown("""
-        **2. Renting & Investing**
-        * **Initial Capital:** Renter starts with Buyer's Down Payment + Closing Costs.
-        * **Opportunity Cost:** Monthly difference in spend is invested (or withdrawn) from portfolio.
-        * **Portfolio Tax:** 10% tax on gains (standard for BMV).
-        * **Selling Costs:** 6% commission subtracted from Home Value upon sale.
+        **2. Renta e Inversión**
+        * **Capital Inicial:** El arrendatario comienza con el Enganche + Costos de Cierre del comprador.
+        * **Costo de Oportunidad:** La diferencia mensual en gastos se invierte (o retira) del portafolio.
+        * **Impuesto del Portafolio:** 10% de impuesto sobre ganancias (estándar para BMV).
+        * **Costos de Venta:** 6% de comisión restada del Valor de la Propiedad al vender.
         """)
     st.write("---")
-    st.caption(f"Model parameters based on 2026 Mexican Tax Law. UDI Baseline: {udi_arr[0]:.4f}")
+    st.caption(f"Parámetros del modelo basados en la Ley Fiscal Mexicana 2026. UDI Base: {udi_arr[0]:.4f}")
