@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="México Comprar vs Rentar: Análisis 50 Años", layout="wide")
-st.title("🏡 La Batalla de Riqueza a 50 Años: Edición México")
+st.title("🏡 ¿Comprar o Rentar en México?")
 
 # --- SIDEBAR: INPUTS ---
 with st.sidebar:
@@ -27,7 +27,7 @@ with st.sidebar:
     annual_salary = st.number_input("Salario Bruto Anual (MXN)", value=800_000, step=50_000)
     is_resico = st.checkbox("¿Estás en RESICO?", value=False)
     
-    marginal_tax_rate = 0.02 if is_resico else st.slider("Tu Tasa Marginal de ISR (%)", 20, 35, 30) / 100
+    marginal_tax_rate = 0.02 if is_resico else st.slider("Tu Tasa de ISR (%)", 20, 35, 30) / 100
     portfolio_tax_rate = st.slider("Impuesto sobre Ganancias de Capital (%)", 0, 35, 10) / 100
 
 # --- INITIAL CONSTANTS & ARRAYS ---
@@ -110,7 +110,7 @@ renter_liquid_nw = renter_investments - (renter_gains * portfolio_tax_rate)
 fig_nw = go.Figure()
 fig_nw.add_trace(go.Scatter(x=years_arr, y=buyer_liquid_nw, name="Comprador (Patrimonio Inmobiliario)", line=dict(color='#00CC96', width=3)))
 fig_nw.add_trace(go.Scatter(x=years_arr, y=renter_liquid_nw, name="Arrendatario (Portafolio)", line=dict(color='#636EFA', width=3)))
-fig_nw.update_layout(title="Patrimonio Neto Si Vendieras Todo Hoy", template="plotly_dark", yaxis_title="MXN ($)")
+fig_nw.update_layout(title="Patrimonio Neto Si Liquidaras Todo", template="plotly_dark", yaxis_title="MXN ($)")
 st.plotly_chart(fig_nw, use_container_width=True)
 
 fig_sunk = go.Figure()
@@ -122,8 +122,9 @@ st.plotly_chart(fig_sunk, use_container_width=True)
 fig_outflow = go.Figure()
 fig_outflow.add_trace(go.Scatter(x=years_arr, y=buyer_outflow_monthly, name="Comprador: Gasto Mensual", line=dict(color='#00CC96', width=3)))
 fig_outflow.add_trace(go.Scatter(x=years_arr, y=monthly_rents, name="Arrendatario: Renta Mensual", line=dict(color='#636EFA', width=3)))
-fig_outflow.update_layout(title="Comparación de Flujo de Efectivo (Gasto Mensual)", yaxis_title="MXN ($)", xaxis_title="Años", template="plotly_dark")
+fig_outflow.update_layout(title="Comparación de Flujo de Efectivo (Gasto Mensual Corriente)", yaxis_title="MXN ($)", xaxis_title="Años", template="plotly_dark")
 st.plotly_chart(fig_outflow, use_container_width=True)
+st.caption("⚠️ Nota: Esta gráfica no incluye el pago inicial (enganche y escrituración) para mantener la escala visual, pero dichos montos están considerados en el cálculo de Riqueza Neta.")
 
 # --- VERDICT ---
 st.divider()
