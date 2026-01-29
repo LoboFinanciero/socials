@@ -169,3 +169,19 @@ with c2:
 with c3:
     st.metric("Total Wealth Parity", f"{wealth_breakeven_year:.1f} Yrs" if wealth_breakeven_year else "Never")
     st.caption("When you're officially richer as an owner.")
+
+with st.expander("📝 View Detailed Assumptions & Mexico-Specific Logic"):
+    st.markdown("""
+    **1. Tax Deductibility (ISR)**
+    - Deducts 'Real Interest' only (Interest Rate - Inflation).
+    - Capped at 5 UMAs or 15% of salary.
+    - **Note:** Tax refunds are automatically modeled as extra payments to mortgage principal.
+    
+    **2. Selling the Property**
+    - 6% sales commission is assumed.
+    - First 700k UDIs of profit are tax-exempt (UDI grows with inflation).
+    
+    **3. Renter Portfolio**
+    - Renter invests/draws the 'cash flow difference' vs the buyer.
+    - 10% tax on all portfolio gains.
+    """)
